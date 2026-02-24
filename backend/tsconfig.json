@@ -1,0 +1,68 @@
+{
+  "compilerOptions": {
+    /* ==================
+       语言环境 / Language and Environment
+       ================== */
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "jsx": "preserve",
+
+    /* ==================
+       模块 / Modules
+       ================== */
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+
+    /* ==================
+       输出 / Emit
+       ================== */
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "removeComments": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+
+    /* ==================
+       类型检查 / Type Checking
+       ================== */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "skipLibCheck": true,
+
+    /* ==================
+       互操作约束 / Interop Constraints
+       ================== */
+    "forceConsistentCasingInFileNames": true,
+
+    /* ==================
+       路径映射 / Path Mapping
+       ================== */
+    "baseUrl": "./",
+    "paths": {
+      "@/*": ["src/*"],
+      "@controllers/*": ["src/controllers/*"],
+      "@services/*": ["src/services/*"],
+      "@models/*": ["src/models/*"],
+      "@middlewares/*": ["src/middlewares/*"],
+      "@routes/*": ["src/routes/*"],
+      "@utils/*": ["src/utils/*"],
+      "@websocket/*": ["src/websocket/*"]
+    }
+  },
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts",
+    "**/*.spec.ts"
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__zread__search_doc",
+      "mcp__web-search-prime__webSearchPrime",
+      "WebSearch"
+    ]
+  }
+}

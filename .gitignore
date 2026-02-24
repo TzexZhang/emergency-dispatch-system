@@ -1,0 +1,108 @@
+# ==============================
+# 城市智慧应急协同调度平台 - Git忽略配置
+# ==============================
+
+# ==================
+# 依赖模块 / node_modules
+# ==================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ==================
+# 构建输出 / Build Outputs
+# ==================
+dist/
+dist-ssr/
+build/
+out/
+*.tsbuildinfo
+
+# ==================
+# 环境变量 / Environment Variables
+# ==================
+# .env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# ==================
+# 日志文件 / Logs
+# ==================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+pnpm-debug.log*
+
+# ==================
+# 编辑器配置 / Editor Config
+# ==================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.proj?
+.project
+.settings/
+
+# ==================
+# 测试覆盖率 / Test Coverage
+# ==================
+coverage/
+*.lcov
+.nyc_output/
+
+# ==================
+# 临时文件 / Temporary Files
+# ==================
+tmp/
+temp/
+*.tmp
+.cache/
+.parcel-cache/
+
+# ==================
+# 上传文件 / Upload Files
+# ==================
+uploads/
+public/uploads/
+
+# ==================
+# 数据库 / Database
+# ==================
+*.sql
+!migrations/*.sql
+data/osm/*.pbf
+
+# ==================
+# 操作系统 / OS Files
+# ==================
+Thumbs.db
+.DS_Store
+Spotlight-V100
+.Trashes
+ehthumbs.db
+
+# ==================
+# Docker / Docker
+# ==================
+.dockerignore
+
+# ==================
+# 构建工具 / Build Tools
+# ==================
+.eslintcache
+.stylelintcache

@@ -1,0 +1,286 @@
+/**
+ * ============================================
+ * WebSocket实时通信服务
+ * ============================================
+ *
+ * 功能说明：
+ * - Socket.IO连接管理
+ * - 事件监听和发送
+ * - 断线重连
+ * - 心跳检测
+ *
+ * @author Emergency Dispatch Team
+ */
+
+import { io, Socket } from 'socket.io-client';
+import { message } from 'antd';
+import { config } from '@/config';
+
+/**
+ * WebSocket事件类型
+ */
+export interface SocketEvents {
+  // 服务端推送事件
+  'resource:update': ResourceUpdate;
+  'resource:batch': ResourceBatchUpdate;
+  'incident:new': IncidentNew;
+  'incident:update': IncidentUpdate;
+  'task:created': TaskCreated;
+  'task:update': TaskUpdate;
+  'alert:broadcast': AlertBroadcast;
+  'isochrone:complete': IsochroneComplete;
+  'room-joined': RoomJoined;
+  'room-left': RoomLeft;
+  'ping': PingMessage;
+}
+
+/**
+ * 资源更新数据
+ */
+export interface ResourceUpdate {
+  id: string;
+  status: string;
+  lng: number;
+  lat: number;
+  properties?: any;
+  timestamp: string;
+}
+
+/**
+ * 批量资源更新
+ */
+export interface ResourceBatchUpdate {
+  updates: ResourceUpdate[];
+  count: number;
+  timestamp: string;
+}
+
+/**
+ * 新事件
+ */
+export interface IncidentNew {
+  id: string;
+  type: string;
+  level: string;
+  title: string;
+  lng: number;
+  lat: number;
+  timestamp: string;
+}
+
+/**
+ * WebSocket服务类
+ */
+class WebSocketService {
+  private socket: Socket | null = null;
+  private isConnected: boolean = false;
+  private reconnectAttempts: number = 0;
+  private maxReconnectAttempts: number = 5;
+  private eventListeners: Map<string, Function[]> = new Map();
+
+  /**
+   * 连接WebSocket服务器
+   *
+   * @param token - JWT Token
+   */
+  public connect(token: string): void {
+    if (this.socket?.connected) {
+      console.log('WebSocket已连接，跳过重复连接');
+      return;
+    }
+
+    try {
+      this.socket = io(config.ws.url, {
+        auth: {
+          token,
+        },
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 30000,
+        reconnectionAttempts: this.maxReconnectAttempts,
+      });
+
+      this.setupEventHandlers();
+    } catch (error) {
+      console.error('WebSocket连接失败:', error);
+    }
+  }
+
+  /**
+   * 设置事件处理器
+   */
+  private setupEventHandlers(): void {
+    if (!this.socket) return;
+
+    // 连接成功
+    this.socket.on('connect', () => {
+      console.log('WebSocket连接成功:', this.socket?.id);
+      this.isConnected = true;
+      this.reconnectAttempts = 0;
+      message.success('实时通信已连接');
+    });
+
+    // 连接错误
+    this.socket.on('connect_error', (error) => {
+      console.error('WebSocket连接错误:', error);
+      this.isConnected = false;
+    });
+
+    // 断开连接
+    this.socket.on('disconnect', (reason) => {
+      console.log('WebSocket断开连接:', reason);
+      this.isConnected = false;
+      message.warning('实时通信已断开');
+    });
+
+    // 重连尝试
+    this.socket.io.on('reconnect_attempt', (attempt) => {
+      console.log(`WebSocket重连尝试: ${attempt}`);
+      this.reconnectAttempts = attempt;
+    });
+
+    // 重连成功
+    this.socket.io.on('reconnect', () => {
+      console.log('WebSocket重连成功');
+      this.isConnected = true;
+      this.reconnectAttempts = 0;
+      message.success('实时通信已重连');
+    });
+
+    // 监听心跳ping
+    this.socket.on('ping', (data: PingMessage) => {
+      // 响应pong
+      this.emit('pong', {
+        timestamp: Date.now(),
+      });
+    });
+
+    // 资源更新事件
+    this.socket.on('resource:update', (data: ResourceUpdate) => {
+      this.triggerEvent('resource:update', data);
+    });
+
+    // 新事件
+    this.socket.on('incident:new', (data: IncidentNew) => {
+      this.triggerEvent('incident:new', data);
+      message.warning(`新事件: ${data.title}`);
+    });
+
+    // 系统告警
+    this.socket.on('alert:broadcast', (data: AlertBroadcast) => {
+      this.triggerEvent('alert:broadcast', data);
+      message.error(`系统告警: ${data.title}`);
+    });
+  }
+
+  /**
+   * 监听事件
+   *
+   * @param event - 事件名称
+   * @param callback - 回调函数
+   */
+  public on<T = any>(event: keyof SocketEvents | string, callback: (data: T) => void): void {
+    if (!this.eventListeners.has(event)) {
+      this.eventListeners.set(event, []);
+    }
+    this.eventListeners.get(event)!.push(callback);
+
+    // 同时监听socket事件
+    this.socket?.on(event, callback);
+  }
+
+  /**
+   * 移除事件监听
+   *
+   * @param event - 事件名称
+   * @param callback - 回调函数
+   */
+  public off(event: string, callback?: Function): void {
+    if (!this.socket) return;
+
+    if (callback) {
+      const listeners = this.eventListeners.get(event);
+      if (listeners) {
+        const index = listeners.indexOf(callback);
+        if (index > -1) {
+          listeners.splice(index, 1);
+        }
+      }
+      this.socket.off(event, callback);
+    } else {
+      this.eventListeners.delete(event);
+      this.socket.off(event);
+    }
+  }
+
+  /**
+   * 发送事件
+   *
+   * @param event - 事件名称
+   * @param data - 数据
+   */
+  public emit(event: string, data?: any): void {
+    if (!this.socket || !this.isConnected) {
+      console.warn('WebSocket未连接，无法发送事件:', event);
+      return;
+    }
+    this.socket.emit(event, data);
+  }
+
+  /**
+   * 加入房间
+   *
+   * @param room - 房间名称
+   */
+  public joinRoom(room: string): void {
+    this.emit('join-room', { room });
+  }
+
+  /**
+   * 离开房间
+   *
+   * @param room - 房间名称
+   */
+  public leaveRoom(room: string): void {
+    this.emit('leave-room', { room });
+  }
+
+  /**
+   * 触发事件回调
+   */
+  private triggerEvent(event: string, data: any): void {
+    const listeners = this.eventListeners.get(event);
+    if (listeners) {
+      listeners.forEach((callback) => {
+        try {
+          callback(data);
+        } catch (error) {
+          console.error(`事件回调错误 [${event}]:`, error);
+        }
+      });
+    }
+  }
+
+  /**
+   * 断开连接
+   */
+  public disconnect(): void {
+    if (this.socket) {
+      this.socket.disconnect();
+      this.socket = null;
+      this.isConnected = false;
+    }
+  }
+
+  /**
+   * 获取连接状态
+   */
+  public getConnectionStatus(): boolean {
+    return this.isConnected;
+  }
+}
+
+// 导出单例
+export const wsService = new WebSocketService();
+export default wsService;
