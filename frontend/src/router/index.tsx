@@ -11,8 +11,9 @@
  * @author Emergency Dispatch Team
  */
 
-import { lazy } from 'react';
-import { Navigate, RouteObject } from 'react-router-dom';
+import { lazy, Suspense } from 'react';
+import { Navigate, RouteObject, useRoutes } from 'react-router-dom';
+import { Spin } from 'antd';
 
 // 懒加载页面组件
 const Login = lazy(() => import('@pages/Login'));
@@ -35,30 +36,24 @@ const routes: RouteObject[] = [
     element: <Login />,
   },
   {
-    path: '/',
+    path: '/dashboard',
     element: <Dashboard />,
-    children: [
-      {
-        path: 'dashboard',
-        element: <Dashboard />,
-      },
-      {
-        path: 'resource',
-        element: <ResourceMonitor />,
-      },
-      {
-        path: 'spatial',
-        element: <SpatialAnalysis />,
-      },
-      {
-        path: 'plotting',
-        element: <TacticalPlotting />,
-      },
-      {
-        path: 'playback',
-        element: <Playback />,
-      },
-    ],
+  },
+  {
+    path: '/resource',
+    element: <ResourceMonitor />,
+  },
+  {
+    path: '/spatial',
+    element: <SpatialAnalysis />,
+  },
+  {
+    path: '/plotting',
+    element: <TacticalPlotting />,
+  },
+  {
+    path: '/playback',
+    element: <Playback />,
   },
   {
     path: '*',
@@ -66,4 +61,26 @@ const routes: RouteObject[] = [
   },
 ];
 
-export default routes;
+/**
+ * 加载中组件
+ */
+const LoadingFallback = () => (
+  <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', gap: 16 }}>
+    <Spin size="large" />
+    <div style={{ color: '#888' }}>加载中...</div>
+  </div>
+);
+
+/**
+ * 路由组件
+ */
+const AppRouter = () => {
+  const routing = useRoutes(routes);
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      {routing}
+    </Suspense>
+  );
+};
+
+export default AppRouter;

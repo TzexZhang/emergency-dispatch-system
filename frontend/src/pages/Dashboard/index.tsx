@@ -12,17 +12,16 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Card, Row, Col, Statistic, Spin } from 'antd';
+import { Row, Col, Statistic, Spin } from 'antd';
 import {
   EnvironmentOutlined,
   AlertOutlined,
   CarOutlined,
-  UserOutlined,
 } from '@ant-design/icons';
 import MapContainer from '@components/Map/MapContainer';
 import { http } from '@utils/http';
 import { wsService } from '@services/websocket.service';
-import type { Resource } from '@types';
+import type { Resource, ResourceUpdate } from '@/types';
 
 /**
  * 指挥大屏组件
@@ -64,9 +63,17 @@ const Dashboard: React.FC = () => {
         offline: number;
         alarm: number;
       }>('/api/v1/resources/stats');
-      setStats(res.data);
+      if (res?.data) {
+        setStats(res.data);
+      }
     } catch (error) {
-      console.error('获取统计失败:', error);
+      // 设置默认值，防止渲染错误
+      setStats({
+        total: 0,
+        online: 0,
+        offline: 0,
+        alarm: 0,
+      });
     }
   };
 
@@ -78,13 +85,17 @@ const Dashboard: React.FC = () => {
     try {
       const res = await http.get<{
         list: Resource[];
+        total?: number;
       }>('/api/v1/resources', {
-        page: 1,
-        pageSize: 100,
+        params: { page: 1, pageSize: 100 },
       });
-      setResources(res.data.list);
+      if (res?.data && typeof res.data === 'object' && 'list' in res.data) {
+        setResources(res.data.list as Resource[]);
+      } else {
+        setResources([]);
+      }
     } catch (error) {
-      console.error('获取资源失败:', error);
+      setResources([]);
     } finally {
       setLoading(false);
     }
@@ -99,7 +110,7 @@ const Dashboard: React.FC = () => {
         r.id === data.id
           ? {
               ...r,
-              resourceStatus: data.status as any,
+              resourceStatus: data.status as Resource['resourceStatus'],
               longitude: data.lng,
               latitude: data.lat,
             }
@@ -111,16 +122,33 @@ const Dashboard: React.FC = () => {
 
   if (loading) {
     return (
-      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Spin size="large" tip="加载中..." />
+      <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+        <Spin size="large" />
+        <div style={{ color: '#888' }}>加载中...</div>
       </div>
     );
   }
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div
+      style={{
+        width: '100%',
+        height: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+      }}
+    >
       {/* 统计面板 */}
-      <Row gutter={16} style={{ padding: '16px', background: '#fff', borderBottom: '1px solid #f0f0f0' }}>
+      <Row
+        gutter={16}
+        style={{
+          padding: '16px',
+          background: '#fff',
+          borderBottom: '1px solid #f0f0f0',
+          flexShrink: 0,
+        }}
+      >
         <Col span={6}>
           <Statistic
             title="总资源数"
@@ -155,7 +183,7 @@ const Dashboard: React.FC = () => {
       </Row>
 
       {/* 地图容器 */}
-      <div style={{ flex: 1, position: 'relative' }}>
+      <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
         <MapContainer resources={resources} />
       </div>
     </div>

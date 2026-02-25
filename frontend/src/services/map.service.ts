@@ -45,15 +45,15 @@ export interface MapConfig {
  */
 export class MapService {
   private map: Map | null = null;
-  private baseLayer: TileLayer | null = null;
+  private baseLayer: TileLayer<OSM> | null = null;
 
   /**
    * 初始化地图
    *
-   * @param config - 地图配置
+   * @param mapConfig - 地图配置
    * @returns OpenLayers Map实例
    */
-  public initMap(config: MapConfig): Map {
+  public initMap(mapConfig: MapConfig): Map {
     // 创建基础图层
     this.baseLayer = new TileLayer({
       source: new OSM({
@@ -64,13 +64,13 @@ export class MapService {
 
     // 创建地图实例
     this.map = new Map({
-      target: config.target,
+      target: mapConfig.target,
       layers: [this.baseLayer],
       view: new View({
-        center: fromLonLat(config.center),
-        zoom: config.zoom,
-        minZoom: config.minZoom ?? config.map.minZoom,
-        maxZoom: config.maxZoom ?? config.map.maxZoom,
+        center: fromLonLat(mapConfig.center),
+        zoom: mapConfig.zoom,
+        minZoom: mapConfig.minZoom ?? config.map.minZoom,
+        maxZoom: mapConfig.maxZoom ?? config.map.maxZoom,
       }),
       controls: defaultControls({
         zoom: false,

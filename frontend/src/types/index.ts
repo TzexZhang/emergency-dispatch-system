@@ -159,6 +159,12 @@ export interface ResourceUpdate {
   timestamp: string;
 }
 
+export interface ResourceBatchUpdate {
+  updates: ResourceUpdate[];
+  count: number;
+  timestamp: string;
+}
+
 export interface IncidentNew {
   id: string;
   type: string;
@@ -167,6 +173,45 @@ export interface IncidentNew {
   lng: number;
   lat: number;
   timestamp: string;
+}
+
+export interface IncidentUpdate {
+  id: string;
+  status: string;
+  timestamp: string;
+}
+
+export interface TaskCreated {
+  id: string;
+  resourceId: string;
+  incidentId: string;
+  timestamp: string;
+}
+
+export interface TaskUpdate {
+  id: string;
+  status: string;
+  timestamp: string;
+}
+
+export interface IsochroneComplete {
+  id: string;
+  results: any[];
+  timestamp: string;
+}
+
+export interface RoomJoined {
+  room: string;
+  timestamp: string;
+}
+
+export interface RoomLeft {
+  room: string;
+  timestamp: string;
+}
+
+export interface PingMessage {
+  timestamp: number;
 }
 
 export interface AlertBroadcast {

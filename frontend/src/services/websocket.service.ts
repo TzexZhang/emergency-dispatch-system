@@ -15,6 +15,19 @@
 import { io, Socket } from 'socket.io-client';
 import { message } from 'antd';
 import { config } from '@/config';
+import type {
+  ResourceUpdate,
+  ResourceBatchUpdate,
+  IncidentNew,
+  IncidentUpdate,
+  TaskCreated,
+  TaskUpdate,
+  IsochroneComplete,
+  RoomJoined,
+  RoomLeft,
+  PingMessage,
+  AlertBroadcast,
+} from '@/types';
 
 /**
  * WebSocket事件类型
@@ -35,48 +48,13 @@ export interface SocketEvents {
 }
 
 /**
- * 资源更新数据
- */
-export interface ResourceUpdate {
-  id: string;
-  status: string;
-  lng: number;
-  lat: number;
-  properties?: any;
-  timestamp: string;
-}
-
-/**
- * 批量资源更新
- */
-export interface ResourceBatchUpdate {
-  updates: ResourceUpdate[];
-  count: number;
-  timestamp: string;
-}
-
-/**
- * 新事件
- */
-export interface IncidentNew {
-  id: string;
-  type: string;
-  level: string;
-  title: string;
-  lng: number;
-  lat: number;
-  timestamp: string;
-}
-
-/**
  * WebSocket服务类
  */
 class WebSocketService {
   private socket: Socket | null = null;
   private isConnected: boolean = false;
-  private reconnectAttempts: number = 0;
   private maxReconnectAttempts: number = 5;
-  private eventListeners: Map<string, Function[]> = new Map();
+  private eventListeners: Map<string, Array<(...args: any[]) => void>> = new Map();
 
   /**
    * 连接WebSocket服务器
@@ -85,7 +63,6 @@ class WebSocketService {
    */
   public connect(token: string): void {
     if (this.socket?.connected) {
-      console.log('WebSocket已连接，跳过重复连接');
       return;
     }
 
@@ -103,7 +80,7 @@ class WebSocketService {
 
       this.setupEventHandlers();
     } catch (error) {
-      console.error('WebSocket连接失败:', error);
+      // 静默处理错误
     }
   }
 
@@ -115,41 +92,29 @@ class WebSocketService {
 
     // 连接成功
     this.socket.on('connect', () => {
-      console.log('WebSocket连接成功:', this.socket?.id);
       this.isConnected = true;
-      this.reconnectAttempts = 0;
       message.success('实时通信已连接');
     });
 
     // 连接错误
-    this.socket.on('connect_error', (error) => {
-      console.error('WebSocket连接错误:', error);
+    this.socket.on('connect_error', () => {
       this.isConnected = false;
     });
 
     // 断开连接
     this.socket.on('disconnect', (reason) => {
-      console.log('WebSocket断开连接:', reason);
       this.isConnected = false;
       message.warning('实时通信已断开');
     });
 
-    // 重连尝试
-    this.socket.io.on('reconnect_attempt', (attempt) => {
-      console.log(`WebSocket重连尝试: ${attempt}`);
-      this.reconnectAttempts = attempt;
-    });
-
     // 重连成功
     this.socket.io.on('reconnect', () => {
-      console.log('WebSocket重连成功');
       this.isConnected = true;
-      this.reconnectAttempts = 0;
       message.success('实时通信已重连');
     });
 
     // 监听心跳ping
-    this.socket.on('ping', (data: PingMessage) => {
+    this.socket.on('ping', (_data: PingMessage) => {
       // 响应pong
       this.emit('pong', {
         timestamp: Date.now(),
@@ -196,7 +161,7 @@ class WebSocketService {
    * @param event - 事件名称
    * @param callback - 回调函数
    */
-  public off(event: string, callback?: Function): void {
+  public off(event: string, callback?: (...args: any[]) => void): void {
     if (!this.socket) return;
 
     if (callback) {
@@ -222,7 +187,6 @@ class WebSocketService {
    */
   public emit(event: string, data?: any): void {
     if (!this.socket || !this.isConnected) {
-      console.warn('WebSocket未连接，无法发送事件:', event);
       return;
     }
     this.socket.emit(event, data);
@@ -256,7 +220,7 @@ class WebSocketService {
         try {
           callback(data);
         } catch (error) {
-          console.error(`事件回调错误 [${event}]:`, error);
+          // 静默处理错误
         }
       });
     }

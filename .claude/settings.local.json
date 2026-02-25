@@ -3,7 +3,16 @@
     "allow": [
       "mcp__zread__search_doc",
       "mcp__web-search-prime__webSearchPrime",
-      "WebSearch"
+      "WebSearch",
+      "Bash(node -e \"require\\(''dotenv''\\).config\\({path: ''./.env''}\\); console.log\\(''DB_PASSWORD:'', process.env.DB_PASSWORD ? ''SET'' : ''EMPTY''\\)\")",
+      "Bash(npx tsx:*)",
+      "Bash(mysql:*)",
+      "Bash(node:*)",
+      "Bash(npm run db:reset:*)",
+      "Bash(npm run lint)",
+      "Bash(findstr:*)",
+      "Bash(dir:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }

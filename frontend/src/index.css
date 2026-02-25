@@ -58,6 +58,56 @@ code {
   position: relative;
 }
 
+/* 确保地图容器父元素有高度 */
+body,
+#root,
+.ant-app,
+.ant-layout {
+  height: 100%;
+}
+
+/* OpenLayers 地图样式 */
+.ol-box {
+  box-sizing: border-box;
+  border-radius: 2px;
+  border: 2px solid #009688;
+}
+
+.ol-mouse-position {
+  top: 8px;
+  right: 8px;
+  background-color: rgba(255, 255, 255, 0.75);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 12px;
+}
+
+.ol-scale-line {
+  background: rgba(0, 60, 136, 0.5);
+  border-radius: 4px;
+  bottom: 8px;
+  left: 8px;
+  padding: 2px 8px;
+}
+
+.ol-scale-line-inner {
+  border: 1px solid #eee;
+  border-top: none;
+  color: #eee;
+  font-size: 10px;
+  text-align: center;
+  margin: 1px;
+}
+
+.ol-unsupported {
+  display: none;
+}
+
+.ol-viewport,
+.ol-control {
+  position: absolute;
+}
+
 .map-full-screen {
   position: absolute !important;
   top: 0;

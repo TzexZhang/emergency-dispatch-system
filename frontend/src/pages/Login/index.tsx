@@ -16,7 +16,7 @@ import { Form, Input, Button, Card, message } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { http } from '@utils/http';
-import type { User } from '@types';
+import type { User } from '@/types';
 
 /**
  * 登录页面组件
@@ -45,7 +45,7 @@ const Login: React.FC = () => {
       message.success('登录成功');
       navigate('/dashboard');
     } catch (error) {
-      console.error('登录失败:', error);
+      // 静默处理错误
     } finally {
       setLoading(false);
     }

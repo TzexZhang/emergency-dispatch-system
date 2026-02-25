@@ -14,6 +14,7 @@
 
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { message } from 'antd';
+import type { ApiResponse } from '@/types';
 
 // 请求配置接口
 interface RequestConfig extends AxiosRequestConfig {
@@ -58,13 +59,15 @@ http.interceptors.response.use(
   (response: AxiosResponse) => {
     const res = response.data;
 
-    // 处理业务错误码
-    if (res.code !== 200) {
-      message.error(res.message || '请求失败');
-      return Promise.reject(new Error(res.message));
+    // 如果响应有 code 字段，处理业务错误码
+    if (res && typeof res === 'object' && 'code' in res) {
+      if (res.code !== 200) {
+        message.error(res.message || '请求失败');
+        return Promise.reject(new Error(res.message));
+      }
     }
 
-    return res;
+    return response.data;
   },
   (error) => {
     // 处理HTTP错误
@@ -106,10 +109,9 @@ http.interceptors.response.use(
  */
 export function get<T = any>(
   url: string,
-  params?: any,
-  config?: RequestConfig
+  config?: RequestConfig & { params?: any }
 ): Promise<ApiResponse<T>> {
-  return http.get(url, { params, ...config });
+  return http.get(url, config);
 }
 
 /**
@@ -168,11 +170,14 @@ export function upload<T = any>(
   });
 }
 
+// 导出 http 实例供其他模块使用
+export { http };
+
 export default {
   get,
   post,
   put,
-  del: delete,
+  del,
   upload,
   http,
 };
