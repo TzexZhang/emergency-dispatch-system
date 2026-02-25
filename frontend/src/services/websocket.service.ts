@@ -13,7 +13,7 @@
  */
 
 import { io, Socket } from 'socket.io-client';
-import { message } from 'antd';
+import { message as antdMessage } from 'antd';
 import { config } from '@/config';
 import type {
   ResourceUpdate,
@@ -93,7 +93,7 @@ class WebSocketService {
     // 连接成功
     this.socket.on('connect', () => {
       this.isConnected = true;
-      message.success('实时通信已连接');
+      antdMessage.success('实时通信已连接');
     });
 
     // 连接错误
@@ -104,13 +104,13 @@ class WebSocketService {
     // 断开连接
     this.socket.on('disconnect', (reason) => {
       this.isConnected = false;
-      message.warning('实时通信已断开');
+      antdMessage.warning('实时通信已断开');
     });
 
     // 重连成功
     this.socket.io.on('reconnect', () => {
       this.isConnected = true;
-      message.success('实时通信已重连');
+      antdMessage.success('实时通信已重连');
     });
 
     // 监听心跳ping
@@ -129,13 +129,13 @@ class WebSocketService {
     // 新事件
     this.socket.on('incident:new', (data: IncidentNew) => {
       this.triggerEvent('incident:new', data);
-      message.warning(`新事件: ${data.title}`);
+      antdMessage.warning(`新事件: ${data.title}`);
     });
 
     // 系统告警
     this.socket.on('alert:broadcast', (data: AlertBroadcast) => {
       this.triggerEvent('alert:broadcast', data);
-      message.error(`系统告警: ${data.title}`);
+      antdMessage.error(`系统告警: ${data.title}`);
     });
   }
 

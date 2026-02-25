@@ -66,6 +66,11 @@ export class ResourceController {
       const total = countResult[0].total;
 
       // 查询列表
+      // 注意: MySQL prepared statement 不支持 LIMIT/OFFSET 使用占位符
+      // 需要直接将数值嵌入 SQL，并确保是有效的整数
+      const safeLimit = Math.max(1, Math.min(1000, limit));
+      const safeOffset = Math.max(0, offset);
+
       const resources = await query<any[]>(
         `SELECT
           r.id,
@@ -89,8 +94,8 @@ export class ResourceController {
          LEFT JOIN t_resource_type rt ON r.resource_type_id = rt.id
          ${whereClause}
          ORDER BY r.created_at DESC
-         LIMIT ? OFFSET ?`,
-        [...params, limit, offset]
+         LIMIT ${safeLimit} OFFSET ${safeOffset}`,
+        params
       );
 
       res.json({

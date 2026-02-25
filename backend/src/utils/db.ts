@@ -39,8 +39,8 @@ const pool: Pool = mysql.createPool({
   enableKeepAlive: true,
   keepAliveInitialDelay: 0,
 
-  // 命名规则：字段名转为驼峰
-  namedPlaceholders: true,
+  // 使用占位符而非命名参数
+  namedPlaceholders: false,
 
   // 日期格式化
   dateStrings: false,

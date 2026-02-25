@@ -12,7 +12,22 @@
       "Bash(npm run lint)",
       "Bash(findstr:*)",
       "Bash(dir:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(npm run dev:*)",
+      "Bash(timeout:*)",
+      "Bash(curl:*)",
+      "Bash(netstat:*)",
+      "Bash(lsof:*)",
+      "Bash(taskkill:*)",
+      "Bash(tasklist:*)",
+      "Bash(pnpm dev:*)",
+      "Bash(powershell -Command \"Invoke-RestMethod -Uri ''http://localhost:8000/api/v1/resources/stats'' -Method Get -Headers @{''Authorization''=''Bearer fake''}\")",
+      "Bash(pnpm db:query:*)",
+      "Bash(pnpm run --help:*)",
+      "Bash(pnpm db:migrate)",
+      "Bash(tsx:*)",
+      "Bash(pnpm exec:*)",
+      "Bash(ping:*)"
     ]
   }
 }

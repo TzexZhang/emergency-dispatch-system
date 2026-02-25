@@ -15,6 +15,8 @@
 import { Router } from 'express';
 import { AuthController } from '@controllers/auth.controller';
 import { strictRateLimiter } from '@middlewares/rateLimit.middleware';
+import { authMiddleware } from '@middlewares/auth.middleware';
+import { uploadAvatar } from '@middlewares/upload.middleware';
 
 const router = Router();
 const authController = new AuthController();
@@ -43,6 +45,22 @@ const authController = new AuthController();
 router.post('/login', strictRateLimiter, authController.login);
 
 /**
+ * POST /api/v1/auth/register
+ * 用户注册
+ *
+ * Request Body:
+ * {
+ *   "username": "newuser",
+ *   "password": "password123",
+ *   "realName": "张三",
+ *   "phone": "13800138000",
+ *   "email": "user@example.com",
+ *   "role": "operator"
+ * }
+ */
+router.post('/register', authController.register);
+
+/**
  * POST /api/v1/auth/logout
  * 用户登出
  */
@@ -65,5 +83,20 @@ router.post('/refresh', authController.refreshToken);
  * 需要认证
  */
 router.get('/info', authController.getCurrentUser);
+
+/**
+ * POST /api/v1/auth/upload-avatar
+ * 上传头像
+ * 需要认证
+ * Content-Type: multipart/form-data
+ */
+router.post('/upload-avatar', authMiddleware, uploadAvatar, authController.uploadAvatar);
+
+/**
+ * PUT /api/v1/auth/profile
+ * 更新个人信息
+ * 需要认证
+ */
+router.put('/profile', authMiddleware, authController.updateProfile);
 
 export default router;

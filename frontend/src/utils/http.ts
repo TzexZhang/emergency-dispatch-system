@@ -6,15 +6,17 @@
  * 功能说明：
  * - Axios实例配置
  * - 请求/响应拦截器
- * - Token管理
+ * - Token管理（从userStore获取）
  * - 错误处理
  *
  * @author Emergency Dispatch Team
  */
 
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
-import { message } from 'antd';
+import { message as antdMessage } from 'antd';
 import type { ApiResponse } from '@/types';
+import { getToken } from '@/store/userStore';
+import { useUserStore } from '@/store/userStore';
 
 // 请求配置接口
 interface RequestConfig extends AxiosRequestConfig {
@@ -26,7 +28,7 @@ interface RequestConfig extends AxiosRequestConfig {
  * 创建Axios实例
  */
 const http: AxiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001',
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000',
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
@@ -38,8 +40,8 @@ const http: AxiosInstance = axios.create({
  */
 http.interceptors.request.use(
   (config) => {
-    // 从localStorage获取token
-    const token = localStorage.getItem('token');
+    // 从userStore获取token
+    const token = getToken();
 
     if (token && !(config as RequestConfig).skipAuth) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -62,7 +64,7 @@ http.interceptors.response.use(
     // 如果响应有 code 字段，处理业务错误码
     if (res && typeof res === 'object' && 'code' in res) {
       if (res.code !== 200) {
-        message.error(res.message || '请求失败');
+        antdMessage.error(res.message || '请求失败');
         return Promise.reject(new Error(res.message));
       }
     }
@@ -76,28 +78,29 @@ http.interceptors.response.use(
 
       switch (status) {
         case 401:
-          message.error('未授权，请重新登录');
-          localStorage.removeItem('token');
+          antdMessage.error('未授权，请重新登录');
+          // 使用userStore的logout清除状态
+          useUserStore.getState().logout();
           window.location.href = '/login';
           break;
         case 403:
-          message.error('权限不足');
+          antdMessage.error('权限不足');
           break;
         case 404:
-          message.error('请求的资源不存在');
+          antdMessage.error('请求的资源不存在');
           break;
         case 500:
-          message.error('服务器内部错误');
+          antdMessage.error('服务器内部错误');
           break;
         default:
-          message.error(data?.message || '请求失败');
+          antdMessage.error(data?.message || '请求失败');
       }
     } else if (error.code === 'ECONNABORTED') {
-      message.error('请求超时');
+      antdMessage.error('请求超时');
     } else if (error.message === 'Network Error') {
-      message.error('网络错误，请检查网络连接');
+      antdMessage.error('网络错误，请检查网络连接');
     } else {
-      message.error('请求失败');
+      antdMessage.error('请求失败');
     }
 
     return Promise.reject(error);

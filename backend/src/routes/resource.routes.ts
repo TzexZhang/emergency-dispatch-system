@@ -32,30 +32,6 @@ const resourceController = new ResourceController();
 router.get('/', resourceController.getList);
 
 /**
- * GET /api/v1/resources/:id
- * 获取资源详情
- */
-router.get('/:id', resourceController.getDetail);
-
-/**
- * POST /api/v1/resources
- * 创建资源
- */
-router.post('/', resourceController.create);
-
-/**
- * PUT /api/v1/resources/:id
- * 更新资源
- */
-router.put('/:id', resourceController.update);
-
-/**
- * DELETE /api/v1/resources/:id
- * 删除资源
- */
-router.delete('/:id', resourceController.delete);
-
-/**
  * GET /api/v1/resources/nearby
  * 查询附近资源
  *
@@ -72,5 +48,30 @@ router.get('/nearby', resourceController.getNearby);
  * 资源统计
  */
 router.get('/stats', resourceController.getStats);
+
+/**
+ * POST /api/v1/resources
+ * 创建资源
+ */
+router.post('/', resourceController.create);
+
+/**
+ * GET /api/v1/resources/:id
+ * 获取资源详情
+ * IMPORTANT: This route must come AFTER specific routes like /stats and /nearby
+ */
+router.get('/:id', resourceController.getDetail);
+
+/**
+ * PUT /api/v1/resources/:id
+ * 更新资源
+ */
+router.put('/:id', resourceController.update);
+
+/**
+ * DELETE /api/v1/resources/:id
+ * 删除资源
+ */
+router.delete('/:id', resourceController.delete);
 
 export default router;

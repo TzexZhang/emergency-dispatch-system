@@ -85,7 +85,7 @@ npm run db:seed
 #### 4. 启动开发服务器
 
 ```bash
-# 启动后端服务 (端口 3001)
+# 启动后端服务 (端口 8000)
 cd backend
 npm run dev
 
@@ -97,7 +97,7 @@ npm run dev
 #### 5. 访问系统
 
 - 前端地址: http://localhost:3000
-- 后端API: http://localhost:3001
+- 后端API: http://localhost:8000
 - 默认账户: `admin` / `admin123`
 
 ## 📁 项目结构

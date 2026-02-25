@@ -7,15 +7,17 @@
  * - 用户登录表单
  * - 登录状态管理
  * - 跳转处理
+ * - 与userStore集成
  *
  * @author Emergency Dispatch Team
  */
 
 import { useState } from 'react';
-import { Form, Input, Button, Card, message } from 'antd';
+import { Form, Input, Button, Card, message as antdMessage, Divider } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { http } from '@utils/http';
+import { useUserStore } from '@/store/userStore';
 import type { User } from '@/types';
 
 /**
@@ -23,6 +25,8 @@ import type { User } from '@/types';
  */
 const Login: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { setUser, setToken } = useUserStore();
   const [loading, setLoading] = useState(false);
 
   const onFinish = async (values: any) => {
@@ -37,13 +41,15 @@ const Login: React.FC = () => {
         password: values.password,
       });
 
-      // 保存token
-      localStorage.setItem('token', res.data.token);
-      localStorage.setItem('refreshToken', res.data.refreshToken);
-      localStorage.setItem('user', JSON.stringify(res.data.user));
+      // 保存到userStore
+      setToken(res.data.token);
+      setUser(res.data.user);
 
-      message.success('登录成功');
-      navigate('/dashboard');
+      antdMessage.success('登录成功');
+
+      // 跳转到之前的页面或首页
+      const from = (location.state as any)?.from?.pathname || '/dashboard';
+      navigate(from, { replace: true });
     } catch (error) {
       // 静默处理错误
     } finally {
@@ -109,6 +115,12 @@ const Login: React.FC = () => {
 
         <div style={{ textAlign: 'center', color: '#888', marginTop: 16 }}>
           <p>默认账户：admin / admin123</p>
+        </div>
+
+        <Divider plain>还没有账号？</Divider>
+
+        <div style={{ textAlign: 'center' }}>
+          <Link to="/register">立即注册</Link>
         </div>
       </Card>
     </div>

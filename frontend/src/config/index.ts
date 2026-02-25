@@ -18,13 +18,13 @@ export const config = {
 
   // API配置
   api: {
-    baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001',
+    baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000',
     timeout: 30000,
   },
 
   // WebSocket配置
   ws: {
-    url: import.meta.env.VITE_WS_URL || 'http://localhost:3001',
+    url: import.meta.env.VITE_WS_URL || 'http://localhost:8000',
     path: '/socket.io/',
     autoConnect: true,
     reconnection: true,

@@ -41,6 +41,7 @@ import resourceRoutes from '@routes/resource.routes';
 import incidentRoutes from '@routes/incident.routes';
 import spatialRoutes from '@routes/spatial.routes';
 import dispatchRoutes from '@routes/dispatch.routes';
+import plottingRoutes from '@routes/plotting.routes';
 import playbackRoutes from '@routes/playback.routes';
 
 // 导入WebSocket服务
@@ -124,7 +125,7 @@ class App {
     }
 
     // 静态文件服务（上传文件）
-    this.app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+    this.app.use('/uploads', express.static(path.join(__dirname, '../backend/uploads')));
 
     // API请求限流
     this.app.use('/api/', rateLimiter);
@@ -150,6 +151,7 @@ class App {
     this.app.use('/api/v1/incidents', authMiddleware, incidentRoutes);
     this.app.use('/api/v1/spatial', authMiddleware, spatialRoutes);
     this.app.use('/api/v1/dispatch', authMiddleware, dispatchRoutes);
+    this.app.use('/api/v1/plotting', authMiddleware, plottingRoutes);
     this.app.use('/api/v1/playback', authMiddleware, playbackRoutes);
 
     // 404处理

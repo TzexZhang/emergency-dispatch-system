@@ -133,8 +133,8 @@ const config: Config = {
   // ================== 应用配置 ==================
   app: {
     env: process.env.NODE_ENV || 'development',
-    port: parseInt(process.env.PORT || '3001', 10),
-    url: process.env.APP_URL || 'http://localhost:3001',
+    port: parseInt(process.env.PORT || '8000', 10),
+    url: process.env.APP_URL || 'http://localhost:8000',
     name: process.env.APP_NAME || '城市智慧应急协同调度平台',
     frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
   },
@@ -145,7 +145,7 @@ const config: Config = {
     port: parseInt(process.env.DB_PORT || '3306', 10),
     database: process.env.DB_NAME || 'emergency_dispatch',
     username: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
+    password: process.env.DB_PASSWORD || 'password',
     charset: process.env.DB_CHARSET || 'utf8mb4',
     timezone: process.env.DB_TIMEZONE || '+08:00',
   },

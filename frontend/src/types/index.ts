@@ -13,6 +13,9 @@ export interface User {
   userId: string;
   username: string;
   realName: string;
+  phone?: string;
+  email?: string;
+  avatar?: string;
   role: UserRole;
   departmentId?: string;
   departmentName?: string;

@@ -16,6 +16,8 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
+import path from 'path';
+import fs from 'fs';
 import { query } from '@utils/db';
 import { config } from '@utils/config';
 import { logger } from '@utils/logger';
@@ -185,6 +187,7 @@ export class AuthController {
         u.real_name,
         u.phone,
         u.email,
+        u.avatar,
         u.role,
         u.department_id,
         d.name as department_name,
@@ -211,6 +214,7 @@ export class AuthController {
         realName: user.real_name,
         phone: user.phone,
         email: user.email,
+        avatar: user.avatar,
         role: user.role,
         department: {
           id: user.department_id,
@@ -220,6 +224,179 @@ export class AuthController {
         lastLoginAt: user.last_login_at,
       },
     });
+  };
+
+  /**
+   * 用户注册
+   *
+   * @param req - 请求对象
+   * @param res - 响应对象
+   */
+  public register = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { username, password, realName, phone, email, role = 'operator' } = req.body;
+
+      // 参数验证
+      if (!username || !password) {
+        throw new ValidationError('用户名和密码不能为空');
+      }
+
+      // 验证角色
+      const validRoles = ['admin', 'operator', 'dispatcher', 'viewer'];
+      if (!validRoles.includes(role)) {
+        throw new ValidationError('无效的角色类型');
+      }
+
+      // 检查用户名是否已存在
+      const existingUsers = await query<any[]>(
+        'SELECT id FROM t_user WHERE username = ? AND deleted_at IS NULL',
+        [username]
+      );
+
+      if (existingUsers.length > 0) {
+        throw new ValidationError('用户名已存在');
+      }
+
+      // 加密密码
+      const passwordHash = await bcrypt.hash(password, 10);
+
+      // 生成用户ID
+      const userId = uuidv4();
+
+      // 插入用户记录
+      await query(
+        `INSERT INTO t_user (id, username, password_hash, real_name, phone, email, role, status, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'active', NOW())`,
+        [userId, username, passwordHash, realName || null, phone || null, email || null, role]
+      );
+
+      logger.info(`新用户注册成功: ${username}`);
+
+      res.json({
+        code: 200,
+        message: '注册成功',
+        data: {
+          userId,
+          username,
+          role,
+        },
+      });
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  /**
+   * 上传头像
+   *
+   * @param req - 请求对象
+   * @param res - 响应对象
+   */
+  public uploadAvatar = async (req: Request, res: Response): Promise<void> => {
+    try {
+      if (!req.user) {
+        throw new UnauthorizedError('未认证');
+      }
+
+      if (!req.file) {
+        throw new ValidationError('请选择要上传的头像文件');
+      }
+
+      // 获取文件路径
+      const fileName = req.file.filename;
+      const avatarUrl = `/uploads/avatars/${fileName}`;
+
+      // 更新用户头像
+      await query(
+        'UPDATE t_user SET avatar = ? WHERE id = ?',
+        [avatarUrl, req.user.userId]
+      );
+
+      logger.info(`用户 ${req.user.username} 上传头像成功: ${avatarUrl}`);
+
+      res.json({
+        code: 200,
+        message: '头像上传成功',
+        data: {
+          avatarUrl,
+        },
+      });
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  /**
+   * 更新个人信息
+   *
+   * @param req - 请求对象
+   * @param res - 响应对象
+   */
+  public updateProfile = async (req: Request, res: Response): Promise<void> => {
+    try {
+      if (!req.user) {
+        throw new UnauthorizedError('未认证');
+      }
+
+      const { realName, phone, email } = req.body;
+
+      // 构建更新SQL（只更新提供的字段）
+      const updates: string[] = [];
+      const values: any[] = [];
+
+      if (realName !== undefined) {
+        updates.push('real_name = ?');
+        values.push(realName);
+      }
+
+      if (phone !== undefined) {
+        updates.push('phone = ?');
+        values.push(phone);
+      }
+
+      if (email !== undefined) {
+        updates.push('email = ?');
+        values.push(email);
+      }
+
+      if (updates.length === 0) {
+        throw new ValidationError('没有要更新的字段');
+      }
+
+      values.push(req.user.userId);
+
+      await query(
+        `UPDATE t_user SET ${updates.join(', ')} WHERE id = ?`,
+        values
+      );
+
+      logger.info(`用户 ${req.user.username} 更新个人信息成功`);
+
+      // 查询更新后的用户信息
+      const users = await query<any[]>(
+        `SELECT id, username, real_name, phone, email, avatar, role, department_id
+         FROM t_user WHERE id = ?`,
+        [req.user.userId]
+      );
+
+      const user = users[0];
+
+      res.json({
+        code: 200,
+        message: '更新成功',
+        data: {
+          userId: user.id,
+          username: user.username,
+          realName: user.real_name,
+          phone: user.phone,
+          email: user.email,
+          avatar: user.avatar,
+          role: user.role,
+        },
+      });
+    } catch (error) {
+      throw error;
+    }
   };
 
   /**

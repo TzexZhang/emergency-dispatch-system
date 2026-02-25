@@ -14,7 +14,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { logger } from '@utils/logger';
-import { config } from './config';
+import { config } from '@utils/config';
 
 /**
  * 自定义错误类
