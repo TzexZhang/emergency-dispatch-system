@@ -26,21 +26,7 @@ import {
 import { http } from '@utils/http';
 import DataTable, { type SearchField } from '@/components/DataTable/DataTable';
 import type { ColumnsType } from 'antd/es/table';
-
-interface Resource {
-  id: string;
-  resourceTypeId: string;
-  resourceName: string;
-  resourceCode?: string;
-  resourceStatus: 'online' | 'offline' | 'alarm' | 'processing';
-  longitude: number;
-  latitude: number;
-  altitude?: number;
-  speed?: number;
-  direction?: number;
-  departmentId?: string;
-  typeName?: string;
-}
+import type { Resource, ResourceStatus } from '@/types';
 
 interface ResourceFormData {
   resourceTypeId: string;
@@ -53,14 +39,14 @@ interface ResourceFormData {
   departmentId?: string;
 }
 
-const STATUS_OPTIONS = [
+const STATUS_OPTIONS: { label: string; value: ResourceStatus }[] = [
   { label: '在线', value: 'online' },
   { label: '离线', value: 'offline' },
   { label: '告警', value: 'alarm' },
   { label: '处理中', value: 'processing' },
 ];
 
-const STATUS_COLORS: Record<string, string> = {
+const STATUS_COLORS: Record<ResourceStatus, string> = {
   online: 'success',
   offline: 'default',
   alarm: 'error',

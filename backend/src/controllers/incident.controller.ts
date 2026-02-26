@@ -90,14 +90,14 @@ export class IncidentController {
           i.location,
           i.latitude,
           i.longitude,
-          i.reported_by,
-          reporter.username as reporter_name,
-          i.handler_id,
-          handler.username as handler_name,
-          i.reported_at,
-          i.resolved_at,
-          i.created_at,
-          i.updated_at
+          i.reported_by as reportedBy,
+          reporter.username as reporterName,
+          i.handler_id as handlerId,
+          handler.username as assigneeName,
+          i.reported_at as reportedAt,
+          i.resolved_at as resolvedAt,
+          i.created_at as createdAt,
+          i.updated_at as updatedAt
          FROM t_incident i
          LEFT JOIN t_user reporter ON i.reported_by = reporter.id
          LEFT JOIN t_user handler ON i.handler_id = handler.id

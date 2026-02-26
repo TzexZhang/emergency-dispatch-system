@@ -76,25 +76,25 @@ export class DispatchController {
       const tasks = await query<any[]>(
         `SELECT
           d.id,
-          d.incident_id,
-          i.title as incident_title,
-          d.task_type,
+          d.incident_id as incidentId,
+          i.title as incidentTitle,
+          d.task_type as taskType,
           d.title,
           d.description,
           d.priority,
           d.task_status as status,
-          d.resource_id,
-          r.name as resource_name,
-          d.assigned_to,
-          assignee.username as assignee_name,
-          d.created_by,
-          creator.username as creator_name,
-          d.scheduled_start,
-          d.scheduled_end,
-          d.actual_start,
-          d.actual_end,
-          d.created_at,
-          d.updated_at
+          d.resource_id as resourceId,
+          r.name as resourceName,
+          d.assigned_to as assignedTo,
+          assignee.username as assigneeName,
+          d.created_by as createdBy,
+          creator.username as creatorName,
+          d.scheduled_start as scheduledStart,
+          d.scheduled_end as scheduledEnd,
+          d.actual_start as actualStart,
+          d.actual_end as actualEnd,
+          d.created_at as createdAt,
+          d.updated_at as updatedAt
          FROM t_dispatch_task d
          LEFT JOIN t_incident i ON d.incident_id = i.id
          LEFT JOIN t_resource r ON d.resource_id = r.id

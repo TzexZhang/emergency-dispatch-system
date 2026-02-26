@@ -15,12 +15,18 @@
 import Map from 'ol/Map';
 import View from 'ol/View';
 import TileLayer from 'ol/layer/Tile';
+import VectorLayer from 'ol/layer/Vector';
+import VectorSource from 'ol/source/Vector';
 import OSM from 'ol/source/OSM';
 import { fromLonLat, toLonLat, transform } from 'ol/proj';
 import { defaults as defaultControls } from 'ol/control';
+import { Style, Circle, Fill, Stroke, Text } from 'ol/style';
+import { Feature } from 'ol';
+import { Point } from 'ol/geom';
 import proj4 from 'proj4';
 import { register } from 'ol/proj/proj4';
 import { config } from '@/config';
+import type { Resource, ResourceStatus } from '@/types';
 
 /**
  * 注册自定义坐标系
@@ -43,9 +49,18 @@ export interface MapConfig {
 /**
  * 地图服务类
  */
+const STATUS_CONFIG: Record<ResourceStatus, { color: string; fillColor: string }> = {
+  online: { color: '#52c41a', fillColor: 'rgba(82, 196, 26, 0.3)' },
+  offline: { color: '#d9d9d9', fillColor: 'rgba(217, 217, 217, 0.3)' },
+  alarm: { color: '#ff4d4f', fillColor: 'rgba(255, 77, 79, 0.3)' },
+  processing: { color: '#1890ff', fillColor: 'rgba(24, 144, 255, 0.3)' },
+};
+
 export class MapService {
   private map: Map | null = null;
   private baseLayer: TileLayer<OSM> | null = null;
+  private resourceLayer: VectorLayer<VectorSource<Feature>> | null = null;
+  private resourceSource: VectorSource<Feature> | null = null;
 
   /**
    * 初始化地图
@@ -54,18 +69,21 @@ export class MapService {
    * @returns OpenLayers Map实例
    */
   public initMap(mapConfig: MapConfig): Map {
-    // 创建基础图层
     this.baseLayer = new TileLayer({
       source: new OSM({
-        // 可配置其他瓦片源（天地图、高德等）
         url: config.map.osmTileUrl,
       }),
     });
 
-    // 创建地图实例
+    this.resourceSource = new VectorSource<Feature>();
+    this.resourceLayer = new VectorLayer({
+      source: this.resourceSource,
+      zIndex: 10,
+    });
+
     this.map = new Map({
       target: mapConfig.target,
-      layers: [this.baseLayer],
+      layers: [this.baseLayer, this.resourceLayer],
       view: new View({
         center: fromLonLat(mapConfig.center),
         zoom: mapConfig.zoom,
@@ -212,7 +230,101 @@ export class MapService {
     if (this.map) {
       this.map.setTarget(undefined);
       this.map = null;
+      this.resourceSource = null;
+      this.resourceLayer = null;
+      this.baseLayer = null;
     }
+  }
+
+  /**
+   * 创建资源点样式
+   */
+  private createResourceStyle(status: ResourceStatus, label?: string): Style {
+    const statusConfig = STATUS_CONFIG[status] || STATUS_CONFIG.offline;
+
+    return new Style({
+      image: new Circle({
+        radius: 10,
+        fill: new Fill({ color: statusConfig.fillColor }),
+        stroke: new Stroke({ color: statusConfig.color, width: 2 }),
+      }),
+      text: label
+        ? new Text({
+            text: label,
+            font: '12px sans-serif',
+            fill: new Fill({ color: '#333' }),
+            stroke: new Stroke({ color: '#fff', width: 2 }),
+            offsetY: -18,
+          })
+        : undefined,
+    });
+  }
+
+  /**
+   * 更新资源点位
+   */
+  public updateResources(resources: Resource[]): void {
+    if (!this.resourceSource) return;
+
+    this.resourceSource.clear();
+
+    resources.forEach((resource) => {
+      const feature = new Feature({
+        geometry: new Point(fromLonLat([resource.longitude, resource.latitude])),
+        data: resource,
+      });
+
+      feature.setId(resource.id);
+      feature.setStyle(
+        this.createResourceStyle(resource.resourceStatus, resource.resourceName)
+      );
+
+      this.resourceSource!.addFeature(feature);
+    });
+  }
+
+  /**
+   * 更新单个资源位置
+   */
+  public updateResourcePosition(
+    resourceId: string,
+    lng: number,
+    lat: number,
+    status?: ResourceStatus
+  ): void {
+    if (!this.resourceSource) return;
+
+    const feature = this.resourceSource.getFeatureById(resourceId);
+    if (feature) {
+      const geometry = feature.getGeometry();
+      if (geometry instanceof Point) {
+        geometry.setCoordinates(fromLonLat([lng, lat]));
+      }
+
+      if (status) {
+        const data = feature.get('data') as Resource;
+        if (data) {
+          data.resourceStatus = status;
+          feature.setStyle(this.createResourceStyle(status, data.resourceName));
+        }
+      }
+    }
+  }
+
+  /**
+   * 清除所有资源点位
+   */
+  public clearResources(): void {
+    if (this.resourceSource) {
+      this.resourceSource.clear();
+    }
+  }
+
+  /**
+   * 获取资源图层
+   */
+  public getResourceLayer(): VectorLayer<VectorSource<Feature>> | null {
+    return this.resourceLayer;
   }
 }
 

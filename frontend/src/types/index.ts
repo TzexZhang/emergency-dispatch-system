@@ -82,6 +82,19 @@ export type IncidentType = 'fire' | 'traffic' | 'medical' | 'public_security' | 
 export type IncidentLevel = 'minor' | 'major' | 'severe';
 export type IncidentStatus = 'pending' | 'processing' | 'resolved' | 'closed';
 
+export interface IncidentListItem extends Omit<Incident, 'incidentType' | 'incidentLevel' | 'incidentStatus' | 'reportedBy' | 'handlerId' | 'reportedAt' | 'resolvedAt'> {
+  type: IncidentType;
+  level: IncidentLevel;
+  status: IncidentStatus;
+  location?: string;
+  reporterName?: string;
+  assigneeName?: string;
+  reportedAt: string;
+  occurredAt?: string;
+  closedAt?: string;
+  createdAt: string;
+}
+
 // ==================
 // 空间分析类型
 // ==================
@@ -130,6 +143,27 @@ export interface DispatchTask {
 }
 
 export type TaskStatus = 'pending' | 'executing' | 'completed' | 'cancelled';
+
+export interface DispatchTaskListItem {
+  id: string;
+  incidentId?: string;
+  incidentTitle?: string;
+  taskType: string;
+  title: string;
+  description?: string;
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  status: 'pending' | 'assigned' | 'in_progress' | 'completed' | 'cancelled';
+  resourceId?: string;
+  resourceName?: string;
+  assignedTo?: string;
+  assigneeName?: string;
+  creatorName?: string;
+  scheduledStart?: string;
+  scheduledEnd?: string;
+  actualStart?: string;
+  actualEnd?: string;
+  createdAt: string;
+}
 
 // ==================
 // 轨迹类型

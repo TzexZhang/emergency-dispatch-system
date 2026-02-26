@@ -7,6 +7,7 @@
  * - OpenLayers地图初始化
  * - 图层管理
  * - 资源点位渲染
+ * - 实时位置更新
  *
  * @author Emergency Dispatch Team
  */
@@ -21,19 +22,16 @@ interface MapContainerProps {
   resources: Resource[];
 }
 
-/**
- * 地图容器组件
- */
 const MapContainer: React.FC<MapContainerProps> = ({ resources }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInitializedRef = useRef(false);
+  const prevResourcesRef = useRef<Resource[]>([]);
 
   useEffect(() => {
     if (!mapContainerRef.current || mapInitializedRef.current) {
       return;
     }
 
-    // 初始化地图
     try {
       mapService.initMap({
         target: mapContainerRef.current,
@@ -44,21 +42,37 @@ const MapContainer: React.FC<MapContainerProps> = ({ resources }) => {
       });
       mapInitializedRef.current = true;
     } catch (error) {
-      // 静默处理错误
+      console.error('地图初始化失败:', error);
     }
 
     return () => {
+      mapService.clearResources();
       mapService.destroy();
       mapInitializedRef.current = false;
     };
-    // 只在组件挂载时执行一次
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 当资源变化时，可以在这里更新地图图层
   useEffect(() => {
-    if (mapInitializedRef.current) {
-      // TODO: 添加资源点位到地图
+    if (!mapInitializedRef.current) return;
+
+    const prevResources = prevResourcesRef.current;
+    const prevMap = new Map(prevResources.map((r) => [r.id, r]));
+
+    const hasChanged =
+      resources.length !== prevResources.length ||
+      resources.some((r) => {
+        const prev = prevMap.get(r.id);
+        return (
+          !prev ||
+          prev.longitude !== r.longitude ||
+          prev.latitude !== r.latitude ||
+          prev.resourceStatus !== r.resourceStatus
+        );
+      });
+
+    if (hasChanged) {
+      mapService.updateResources(resources);
+      prevResourcesRef.current = resources;
     }
   }, [resources]);
 

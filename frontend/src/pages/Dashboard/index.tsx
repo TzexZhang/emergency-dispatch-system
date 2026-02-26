@@ -11,7 +11,7 @@
  * @author Emergency Dispatch Team
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Row, Col, Statistic, Spin } from 'antd';
 import {
   EnvironmentOutlined,
@@ -23,9 +23,6 @@ import { http } from '@utils/http';
 import { wsService } from '@services/websocket.service';
 import type { Resource, ResourceUpdate } from '@/types';
 
-/**
- * 指挥大屏组件
- */
 const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
@@ -35,27 +32,9 @@ const Dashboard: React.FC = () => {
     alarm: 0,
   });
   const [resources, setResources] = useState<Resource[]>([]);
+  const wsConnectedRef = useRef(false);
 
-  useEffect(() => {
-    fetchStats();
-    fetchResources();
-
-    // WebSocket连接
-    const token = localStorage.getItem('token');
-    if (token) {
-      wsService.connect(token);
-      wsService.on<ResourceUpdate>('resource:update', handleResourceUpdate);
-    }
-
-    return () => {
-      wsService.disconnect();
-    };
-  }, []);
-
-  /**
-   * 获取统计数据
-   */
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
       const res = await http.get<{
         total: number;
@@ -66,21 +45,12 @@ const Dashboard: React.FC = () => {
       if (res?.data) {
         setStats(res.data);
       }
-    } catch (error) {
-      // 设置默认值，防止渲染错误
-      setStats({
-        total: 0,
-        online: 0,
-        offline: 0,
-        alarm: 0,
-      });
+    } catch {
+      setStats({ total: 0, online: 0, offline: 0, alarm: 0 });
     }
-  };
+  }, []);
 
-  /**
-   * 获取资源列表
-   */
-  const fetchResources = async () => {
+  const fetchResources = useCallback(async () => {
     setLoading(true);
     try {
       const res = await http.get<{
@@ -94,17 +64,14 @@ const Dashboard: React.FC = () => {
       } else {
         setResources([]);
       }
-    } catch (error) {
+    } catch {
       setResources([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  /**
-   * 处理资源更新
-   */
-  const handleResourceUpdate = (data: ResourceUpdate) => {
+  const handleResourceUpdate = useCallback((data: ResourceUpdate) => {
     setResources((prev) =>
       prev.map((r) =>
         r.id === data.id
@@ -118,7 +85,27 @@ const Dashboard: React.FC = () => {
       )
     );
     fetchStats();
-  };
+  }, [fetchStats]);
+
+  useEffect(() => {
+    fetchStats();
+    fetchResources();
+
+    const token = localStorage.getItem('token');
+    if (token) {
+      wsService.connect(token);
+      wsConnectedRef.current = true;
+      wsService.on<ResourceUpdate>('resource:update', handleResourceUpdate);
+    }
+
+    return () => {
+      if (wsConnectedRef.current) {
+        wsService.off('resource:update', handleResourceUpdate);
+        wsService.disconnect();
+        wsConnectedRef.current = false;
+      }
+    };
+  }, [fetchStats, fetchResources, handleResourceUpdate]);
 
   if (loading) {
     return (
