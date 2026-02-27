@@ -19,7 +19,7 @@ import { Router } from 'express';
 import { DispatchController } from '@controllers/dispatch.controller';
 import { authMiddleware } from '@middlewares/auth.middleware';
 
-const router = Router();
+const router: any = Router();
 const dispatchController = new DispatchController();
 
 // 所有路由都需要认证

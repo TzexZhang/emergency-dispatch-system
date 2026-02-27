@@ -16,7 +16,7 @@ import { Router } from 'express';
 import { PlaybackController } from '@controllers/playback.controller';
 import { authMiddleware } from '@middlewares/auth.middleware';
 
-const router = Router();
+const router: any = Router();
 const playbackController = new PlaybackController();
 
 // 所有路由都需要认证

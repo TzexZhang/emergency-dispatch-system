@@ -188,6 +188,8 @@ async function runMigration(name: string) {
         // 如果是表已存在错误，可以忽略
         if (error.errno === 1050) {
           logger.info(`  表已存在，跳过`);
+        } else if (error.errno === 1060) {
+          logger.info(`  字段已存在，跳过`);
         } else {
           logger.error(`  执行SQL语句失败 [语句${i + 1}]:`, error.message);
           logger.error(`  SQL: ${statement.substring(0, 100)}...`);

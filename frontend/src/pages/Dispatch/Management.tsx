@@ -13,33 +13,12 @@
  * @author Emergency Dispatch Team
  */
 
-import { useState, useEffect, useRef } from "react";
-import {
-  Modal,
-  Form,
-  Input,
-  Select,
-  message,
-  Space,
-  Tag,
-  DatePicker,
-} from "antd";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Modal, Form, Input, Select, App, Space, Tag, DatePicker } from "antd";
 import { http } from "@utils/http";
 import DataTable, { type SearchField } from "@/components/DataTable/DataTable";
 import type { ColumnsType } from "antd/es/table";
 import type { DispatchTaskListItem } from "@/types";
-
-interface TaskFormData {
-  incidentId?: string;
-  taskType: string;
-  title: string;
-  description?: string;
-  priority: string;
-  resourceId?: string;
-  assignedTo?: string;
-  scheduledStart?: string;
-  scheduledEnd?: string;
-}
 
 const TASK_TYPES = [
   { label: "紧急调度", value: "emergency" },
@@ -82,6 +61,7 @@ const PRIORITY_COLORS: Record<DispatchTaskListItem["priority"], string> = {
  * 调度任务管理页面组件
  */
 const DispatchManagement: React.FC = () => {
+  const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
   const [tasks, setTasks] = useState<DispatchTaskListItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -149,7 +129,7 @@ const DispatchManagement: React.FC = () => {
       dataIndex: "priority",
       key: "priority",
       width: 80,
-      render: (priority) => (
+      render: (priority: DispatchTaskListItem["priority"]) => (
         <Tag color={PRIORITY_COLORS[priority] || "default"}>
           {PRIORITIES.find((p) => p.value === priority)?.label || priority}
         </Tag>
@@ -160,7 +140,7 @@ const DispatchManagement: React.FC = () => {
       dataIndex: "status",
       key: "status",
       width: 100,
-      render: (status) => (
+      render: (status: DispatchTaskListItem["status"]) => (
         <Tag color={STATUS_COLORS[status] || "default"}>
           {STATUSES.find((s) => s.value === status)?.label || status}
         </Tag>
@@ -195,7 +175,7 @@ const DispatchManagement: React.FC = () => {
   /**
    * 获取任务列表
    */
-  const fetchTasks = async () => {
+  const fetchTasks = useCallback(async () => {
     setLoading(true);
     try {
       const res = await http.get("/api/v1/dispatch/tasks", {
@@ -210,7 +190,7 @@ const DispatchManagement: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, pageSize, message]);
 
   /**
    * 获取资源列表

@@ -14,7 +14,6 @@
 
 import { Request, Response } from 'express';
 import { query } from '@utils/db';
-import { logger } from '@utils/logger';
 import { NotFoundError, ValidationError } from '@middlewares/error.middleware';
 
 /**
@@ -91,7 +90,6 @@ export class PlaybackController {
         resourceId,
         startTime,
         endTime,
-        gridSize = 0.01, // 网格大小（度）
       } = req.query;
 
       // 参数验证

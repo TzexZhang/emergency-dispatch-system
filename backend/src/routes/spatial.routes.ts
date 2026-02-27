@@ -15,7 +15,7 @@
 import { Router } from 'express';
 import { SpatialController } from '@controllers/spatial.controller';
 
-const router = Router();
+const router: any = Router();
 const spatialController = new SpatialController();
 
 /**

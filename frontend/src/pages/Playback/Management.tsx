@@ -12,7 +12,7 @@
  * @author Emergency Dispatch Team
  */
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from "react";
 import {
   Card,
   Form,
@@ -25,16 +25,14 @@ import {
   Statistic,
   Row,
   Col,
-  Tag,
-} from 'antd';
+} from "antd";
 import {
   SearchOutlined,
   DownloadOutlined,
   ReloadOutlined,
-} from '@ant-design/icons';
-import type { ColumnsType } from 'antd/es/table';
-import { http } from '@utils/http';
-import dayjs from 'dayjs';
+} from "@ant-design/icons";
+import type { ColumnsType } from "antd/es/table";
+import { http } from "@utils/http";
 
 interface TrajectoryPoint {
   id: string;
@@ -67,12 +65,6 @@ interface TrajectoryStats {
   };
 }
 
-const EXPORT_FORMATS = [
-  { label: 'JSON', value: 'json' },
-  { label: 'GeoJSON', value: 'geojson' },
-  { label: 'CSV', value: 'csv' },
-];
-
 /**
  * 轨迹回放管理页面组件
  */
@@ -90,41 +82,41 @@ const PlaybackManagement: React.FC = () => {
    */
   const columns: ColumnsType<TrajectoryPoint> = [
     {
-      title: '时间',
-      dataIndex: 'recorded_at',
-      key: 'recorded_at',
+      title: "时间",
+      dataIndex: "recorded_at",
+      key: "recorded_at",
       width: 180,
     },
     {
-      title: '纬度',
-      dataIndex: 'latitude',
-      key: 'latitude',
+      title: "纬度",
+      dataIndex: "latitude",
+      key: "latitude",
       width: 120,
     },
     {
-      title: '经度',
-      dataIndex: 'longitude',
-      key: 'longitude',
+      title: "经度",
+      dataIndex: "longitude",
+      key: "longitude",
       width: 120,
     },
     {
-      title: '速度(km/h)',
-      dataIndex: 'speed',
-      key: 'speed',
+      title: "速度(km/h)",
+      dataIndex: "speed",
+      key: "speed",
       width: 100,
-      render: (speed) => (speed ? speed.toFixed(2) : '-'),
+      render: (speed) => (speed ? speed.toFixed(2) : "-"),
     },
     {
-      title: '方向(°)',
-      dataIndex: 'direction',
-      key: 'direction',
+      title: "方向(°)",
+      dataIndex: "direction",
+      key: "direction",
       width: 100,
-      render: (direction) => (direction ? direction.toFixed(0) : '-'),
+      render: (direction) => (direction ? direction.toFixed(0) : "-"),
     },
     {
-      title: '位置',
-      dataIndex: 'location',
-      key: 'location',
+      title: "位置",
+      dataIndex: "location",
+      key: "location",
       ellipsis: true,
     },
   ];
@@ -132,9 +124,9 @@ const PlaybackManagement: React.FC = () => {
   /**
    * 获取资源列表
    */
-  const fetchResources = async () => {
+  const fetchResources = useCallback(async () => {
     try {
-      const res = await http.get('/api/v1/resources', {
+      const res = await http.get("/api/v1/resources", {
         params: { page: 1, pageSize: 1000 },
       });
       if (res?.data?.list) {
@@ -142,13 +134,13 @@ const PlaybackManagement: React.FC = () => {
           res.data.list.map((r: any) => ({
             label: `${r.resourceName || r.name} (${r.resourceCode || r.id})`,
             value: r.id,
-          }))
+          })),
         );
       }
     } catch (error) {
-      console.error('获取资源列表失败', error);
+      console.error("获取资源列表失败", error);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchResources();
@@ -163,11 +155,11 @@ const PlaybackManagement: React.FC = () => {
       setLoading(true);
       setHasSearched(true);
 
-      const startTime = values.timeRange[0].format('YYYY-MM-DD HH:mm:ss');
-      const endTime = values.timeRange[1].format('YYYY-MM-DD HH:mm:ss');
+      const startTime = values.timeRange[0].format("YYYY-MM-DD HH:mm:ss");
+      const endTime = values.timeRange[1].format("YYYY-MM-DD HH:mm:ss");
 
       // 查询轨迹数据
-      const res = await http.get('/api/v1/playback/trajectory', {
+      const res = await http.get("/api/v1/playback/trajectory", {
         params: {
           resourceId: values.resourceId,
           startTime,
@@ -180,7 +172,7 @@ const PlaybackManagement: React.FC = () => {
       }
 
       // 查询统计信息
-      const statsRes = await http.get('/api/v1/playback/stats', {
+      const statsRes = await http.get("/api/v1/playback/stats", {
         params: {
           resourceId: values.resourceId,
           startTime,
@@ -192,7 +184,7 @@ const PlaybackManagement: React.FC = () => {
         setStats(statsRes.data);
       }
     } catch (error) {
-      message.error('查询轨迹失败');
+      message.error("查询轨迹失败");
       setTrajectories([]);
       setStats(null);
     } finally {
@@ -208,8 +200,8 @@ const PlaybackManagement: React.FC = () => {
       const values = await form.validateFields();
       setExporting(true);
 
-      const startTime = values.timeRange[0].format('YYYY-MM-DD HH:mm:ss');
-      const endTime = values.timeRange[1].format('YYYY-MM-DD HH:mm:ss');
+      const startTime = values.timeRange[0].format("YYYY-MM-DD HH:mm:ss");
+      const endTime = values.timeRange[1].format("YYYY-MM-DD HH:mm:ss");
 
       const url = `${import.meta.env.VITE_API_URL}/api/v1/playback/export`;
       const params = new URLSearchParams({
@@ -220,16 +212,16 @@ const PlaybackManagement: React.FC = () => {
       });
 
       // 直接下载文件
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = `${url}?${params.toString()}`;
-      link.download = `trajectory-${values.resourceId}-${Date.now()}.${format === 'geojson' ? 'geojson' : format === 'csv' ? 'csv' : 'json'}`;
+      link.download = `trajectory-${values.resourceId}-${Date.now()}.${format === "geojson" ? "geojson" : format === "csv" ? "csv" : "json"}`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
 
-      message.success('导出成功');
+      message.success("导出成功");
     } catch (error) {
-      message.error('导出失败');
+      message.error("导出失败");
     } finally {
       setExporting(false);
     }
@@ -242,7 +234,7 @@ const PlaybackManagement: React.FC = () => {
           <Form.Item
             name="resourceId"
             label="资源"
-            rules={[{ required: true, message: '请选择资源' }]}
+            rules={[{ required: true, message: "请选择资源" }]}
           >
             <Select
               placeholder="请选择资源"
@@ -250,7 +242,9 @@ const PlaybackManagement: React.FC = () => {
               options={resources}
               showSearch
               filterOption={(input, option) =>
-                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                (option?.label ?? "")
+                  .toLowerCase()
+                  .includes(input.toLowerCase())
               }
             />
           </Form.Item>
@@ -258,7 +252,7 @@ const PlaybackManagement: React.FC = () => {
           <Form.Item
             name="timeRange"
             label="时间范围"
-            rules={[{ required: true, message: '请选择时间范围' }]}
+            rules={[{ required: true, message: "请选择时间范围" }]}
           >
             <DatePicker.RangePicker
               showTime
@@ -297,7 +291,11 @@ const PlaybackManagement: React.FC = () => {
         <Card title="轨迹统计" style={{ marginBottom: 16 }}>
           <Row gutter={16}>
             <Col span={6}>
-              <Statistic title="轨迹点数" value={stats.pointCount} suffix="个" />
+              <Statistic
+                title="轨迹点数"
+                value={stats.pointCount}
+                suffix="个"
+              />
             </Col>
             <Col span={6}>
               <Statistic
@@ -334,21 +332,21 @@ const PlaybackManagement: React.FC = () => {
             <Space>
               <Button
                 icon={<DownloadOutlined />}
-                onClick={() => handleExport('json')}
+                onClick={() => handleExport("json")}
                 loading={exporting}
               >
                 导出JSON
               </Button>
               <Button
                 icon={<DownloadOutlined />}
-                onClick={() => handleExport('geojson')}
+                onClick={() => handleExport("geojson")}
                 loading={exporting}
               >
                 导出GeoJSON
               </Button>
               <Button
                 icon={<DownloadOutlined />}
-                onClick={() => handleExport('csv')}
+                onClick={() => handleExport("csv")}
                 loading={exporting}
               >
                 导出CSV
@@ -365,10 +363,10 @@ const PlaybackManagement: React.FC = () => {
               showSizeChanger: true,
               showQuickJumper: true,
               showTotal: (total) => `共 ${total} 条`,
-              pageSizeOptions: ['10', '20', '50', '100'],
+              pageSizeOptions: ["10", "20", "50", "100"],
               defaultPageSize: 20,
             }}
-            scroll={{ x: 'max-content' }}
+            scroll={{ x: "max-content" }}
           />
         </Card>
       )}

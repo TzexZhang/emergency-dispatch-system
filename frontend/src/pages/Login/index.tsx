@@ -12,18 +12,19 @@
  * @author Emergency Dispatch Team
  */
 
-import { useState } from 'react';
-import { Form, Input, Button, Card, message as antdMessage, Divider } from 'antd';
-import { UserOutlined, LockOutlined } from '@ant-design/icons';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { http } from '@utils/http';
-import { useUserStore } from '@/store/userStore';
-import type { User } from '@/types';
+import { useState } from "react";
+import { Form, Input, Button, Card, App, Divider } from "antd";
+import { UserOutlined, LockOutlined } from "@ant-design/icons";
+import { useNavigate, useLocation, Link } from "react-router-dom";
+import { http } from "@utils/http";
+import { useUserStore } from "@/store/userStore";
+import type { User } from "@/types";
 
 /**
  * 登录页面组件
  */
 const Login: React.FC = () => {
+  const { message } = App.useApp();
   const navigate = useNavigate();
   const location = useLocation();
   const { setUser, setToken } = useUserStore();
@@ -36,7 +37,7 @@ const Login: React.FC = () => {
         token: string;
         refreshToken: string;
         user: User;
-      }>('/api/v1/auth/login', {
+      }>("/api/v1/auth/login", {
         username: values.username,
         password: values.password,
       });
@@ -45,10 +46,10 @@ const Login: React.FC = () => {
       setToken(res.data.token);
       setUser(res.data.user);
 
-      antdMessage.success('登录成功');
+      message.success("登录成功");
 
       // 跳转到之前的页面或首页
-      const from = (location.state as any)?.from?.pathname || '/dashboard';
+      const from = (location.state as any)?.from?.pathname || "/dashboard";
       navigate(from, { replace: true });
     } catch (error) {
       // 静默处理错误
@@ -60,17 +61,17 @@ const Login: React.FC = () => {
   return (
     <div
       style={{
-        width: '100%',
-        height: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        width: "100%",
+        height: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
       }}
     >
       <Card
         title="城市智慧应急协同调度平台"
-        style={{ width: 400, boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
+        style={{ width: 400, boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }}
       >
         <Form
           name="login"
@@ -80,7 +81,7 @@ const Login: React.FC = () => {
         >
           <Form.Item
             name="username"
-            rules={[{ required: true, message: '请输入用户名!' }]}
+            rules={[{ required: true, message: "请输入用户名!" }]}
           >
             <Input
               prefix={<UserOutlined />}
@@ -91,7 +92,7 @@ const Login: React.FC = () => {
 
           <Form.Item
             name="password"
-            rules={[{ required: true, message: '请输入密码!' }]}
+            rules={[{ required: true, message: "请输入密码!" }]}
           >
             <Input.Password
               prefix={<LockOutlined />}
@@ -113,13 +114,13 @@ const Login: React.FC = () => {
           </Form.Item>
         </Form>
 
-        <div style={{ textAlign: 'center', color: '#888', marginTop: 16 }}>
+        <div style={{ textAlign: "center", color: "#888", marginTop: 16 }}>
           <p>默认账户：admin / admin123</p>
         </div>
 
         <Divider plain>还没有账号？</Divider>
 
-        <div style={{ textAlign: 'center' }}>
+        <div style={{ textAlign: "center" }}>
           <Link to="/register">立即注册</Link>
         </div>
       </Card>

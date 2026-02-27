@@ -65,7 +65,7 @@ export async function query<T = RowDataPacket[]>(
   const connection = await pool.getConnection();
   try {
     const start = Date.now();
-    const [results] = await connection.execute(sql, params);
+    const [results] = await connection.execute(sql, params || []);
     const duration = Date.now() - start;
 
     // 记录慢查询（超过1秒）

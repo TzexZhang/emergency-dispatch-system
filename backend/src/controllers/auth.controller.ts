@@ -16,8 +16,6 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
-import path from 'path';
-import fs from 'fs';
 import { query } from '@utils/db';
 import { config } from '@utils/config';
 import { logger } from '@utils/logger';
@@ -45,7 +43,7 @@ export class AuthController {
       // 查询用户
       const users = await query<any[]>(
         `SELECT
-          id, username, password_hash, real_name, phone, email,
+          id, username, password_hash, real_name, email, avatar,
           role, department_id, status
          FROM t_user
          WHERE username = ? AND deleted_at IS NULL`,
@@ -91,8 +89,12 @@ export class AuthController {
             userId: user.id,
             username: user.username,
             realName: user.real_name,
+            email: user.email,
+            avatar: user.avatar,
             role: user.role,
             departmentId: user.department_id,
+            status: user.status,
+            lastLoginAt: user.last_login_at,
           },
         },
       });
@@ -107,7 +109,7 @@ export class AuthController {
    * @param req - 请求对象
    * @param res - 响应对象
    */
-  public logout = async (req: Request, res: Response): Promise<void> => {
+  public logout = async (_req: Request, res: Response): Promise<void> => {
     // TODO: 将Token加入黑名单（Redis）
     // await redis.set(`blacklist:${token}`, '1', 'EX', expiresIn);
 
@@ -139,7 +141,7 @@ export class AuthController {
 
       // 查询用户
       const users = await query<any[]>(
-        `SELECT id, username, real_name, role, department_id, status
+        `SELECT id, username, real_name, avatar, role, department_id, status
          FROM t_user
          WHERE id = ? AND status = 'active' AND deleted_at IS NULL`,
         [decoded.userId]
@@ -154,6 +156,9 @@ export class AuthController {
       // 生成新的Token
       const newToken = this.generateToken(user);
       const newRefreshToken = this.generateRefreshToken(user);
+
+      // 更新user对象以包含avatar
+      user.avatar = user.avatar || null;
 
       res.json({
         code: 200,
@@ -216,10 +221,8 @@ export class AuthController {
         email: user.email,
         avatar: user.avatar,
         role: user.role,
-        department: {
-          id: user.department_id,
-          name: user.department_name,
-        },
+        departmentId: user.department_id,
+        departmentName: user.department_name,
         status: user.status,
         lastLoginAt: user.last_login_at,
       },
@@ -238,13 +241,21 @@ export class AuthController {
 
       // 参数验证
       if (!username || !password) {
-        throw new ValidationError('用户名和密码不能为空');
+        res.status(400).json({
+          code: 400,
+          message: '用户名和密码不能为空',
+        });
+        return;
       }
 
       // 验证角色
       const validRoles = ['admin', 'operator', 'dispatcher', 'viewer'];
       if (!validRoles.includes(role)) {
-        throw new ValidationError('无效的角色类型');
+        res.status(400).json({
+          code: 400,
+          message: '无效的角色类型',
+        });
+        return;
       }
 
       // 检查用户名是否已存在
@@ -254,7 +265,11 @@ export class AuthController {
       );
 
       if (existingUsers.length > 0) {
-        throw new ValidationError('用户名已存在');
+        res.status(409).json({
+          code: 409,
+          message: '用户名已存在',
+        });
+        return;
       }
 
       // 加密密码
@@ -281,8 +296,13 @@ export class AuthController {
           role,
         },
       });
-    } catch (error) {
-      throw error;
+    } catch (error: any) {
+      logger.error(`用户注册失败: ${error.message}`, error);
+      res.status(500).json({
+        code: 500,
+        message: '注册失败',
+        error: error.message,
+      });
     }
   };
 
@@ -312,7 +332,7 @@ export class AuthController {
         [avatarUrl, req.user.userId]
       );
 
-      logger.info(`用户 ${req.user.username} 上传头像成功: ${avatarUrl}`);
+      logger.info(`用户 ${req.user.userName} 上传头像成功: ${avatarUrl}`);
 
       res.json({
         code: 200,
@@ -370,7 +390,7 @@ export class AuthController {
         values
       );
 
-      logger.info(`用户 ${req.user.username} 更新个人信息成功`);
+      logger.info(`用户 ${req.user.userName} 更新个人信息成功`);
 
       // 查询更新后的用户信息
       const users = await query<any[]>(
@@ -414,7 +434,7 @@ export class AuthController {
     };
 
     return jwt.sign(payload, config.jwt.secret, {
-      expiresIn: config.jwt.expiresIn,
+      expiresIn: config.jwt.expiresIn as any,
     });
   }
 
@@ -430,7 +450,7 @@ export class AuthController {
     };
 
     return jwt.sign(payload, config.jwt.refreshSecret, {
-      expiresIn: config.jwt.refreshExpiresIn,
+      expiresIn: config.jwt.refreshExpiresIn as any,
     });
   }
 }

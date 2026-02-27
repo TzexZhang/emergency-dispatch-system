@@ -87,7 +87,6 @@ export class IncidentController {
           i.description,
           i.incident_level as level,
           i.incident_status as status,
-          i.location,
           i.latitude,
           i.longitude,
           i.reported_by as reportedBy,
@@ -140,7 +139,6 @@ export class IncidentController {
           i.description,
           i.incident_level as level,
           i.incident_status as status,
-          i.location,
           i.latitude,
           i.longitude,
           i.reported_by,
@@ -191,7 +189,6 @@ export class IncidentController {
         title,
         description,
         level,
-        location,
         latitude,
         longitude,
         resolvedAt,
@@ -207,16 +204,15 @@ export class IncidentController {
       await query(
         `INSERT INTO t_incident (
           id, incident_type, title, description, incident_level, incident_status,
-          location, latitude, longitude,
+          latitude, longitude,
           reported_by, reported_at, resolved_at, created_at
-        ) VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, NOW(), ?, NOW())`,
+        ) VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, NOW(), ?, NOW())`,
         [
           incidentId,
           type,
           title,
           description || null,
           level || 'medium',
-          location || null,
           latitude || null,
           longitude || null,
           req.user.userId,
@@ -251,7 +247,6 @@ export class IncidentController {
         description,
         level,
         status,
-        location,
         latitude,
         longitude,
         handlerId,
@@ -294,11 +289,6 @@ export class IncidentController {
       if (status !== undefined) {
         updates.push('incident_status = ?');
         values.push(status);
-      }
-
-      if (location !== undefined) {
-        updates.push('location = ?');
-        values.push(location);
       }
 
       if (latitude !== undefined) {

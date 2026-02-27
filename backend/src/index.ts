@@ -14,7 +14,7 @@
  * @since 2026-02-24
  */
 
-import express, { Application, Request, Response, NextFunction } from 'express';
+import express, { Application, Request, Response } from 'express';
 import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import cors from 'cors';
@@ -91,8 +91,8 @@ class App {
    * 初始化中间件
    */
   private initializeMiddlewares(): void {
-    // 安全头设置
-    this.app.use(helmet());
+    // 静态文件服务（上传文件）- 放在 CORS 之前以便正确处理跨域
+    this.app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
     // CORS配置
     this.app.use(
@@ -101,6 +101,9 @@ class App {
         credentials: true,
       })
     );
+
+    // 安全头设置
+    this.app.use(helmet());
 
     // 请求体解析
     this.app.use(express.json({ limit: '10mb' }));
@@ -124,14 +127,11 @@ class App {
       );
     }
 
-    // 静态文件服务（上传文件）
-    this.app.use('/uploads', express.static(path.join(__dirname, '../backend/uploads')));
-
     // API请求限流
     this.app.use('/api/', rateLimiter);
 
     // 健康检查端点（无需认证）
-    this.app.get('/health', (req: Request, res: Response) => {
+    this.app.get('/health', (_req: Request, res: Response) => {
       res.status(200).json({
         status: 'ok',
         timestamp: new Date().toISOString(),

@@ -79,27 +79,24 @@ export class DispatchController {
           d.incident_id as incidentId,
           i.title as incidentTitle,
           d.task_type as taskType,
-          d.title,
-          d.description,
           d.priority,
           d.task_status as status,
           d.resource_id as resourceId,
-          r.name as resourceName,
-          d.assigned_to as assignedTo,
-          assignee.username as assigneeName,
-          d.created_by as createdBy,
-          creator.username as creatorName,
-          d.scheduled_start as scheduledStart,
-          d.scheduled_end as scheduledEnd,
-          d.actual_start as actualStart,
-          d.actual_end as actualEnd,
+          r.resource_name as resourceName,
+          d.dispatcher_id as dispatcherId,
+          dispatcher.username as dispatcherName,
+          d.route_geojson as routeGeojson,
+          d.estimated_duration as estimatedDuration,
+          d.estimated_arrival as estimatedArrival,
+          d.actual_arrival as actualArrival,
+          d.notes,
+          d.completed_at as completedAt,
           d.created_at as createdAt,
           d.updated_at as updatedAt
          FROM t_dispatch_task d
          LEFT JOIN t_incident i ON d.incident_id = i.id
          LEFT JOIN t_resource r ON d.resource_id = r.id
-         LEFT JOIN t_user assignee ON d.assigned_to = assignee.id
-         LEFT JOIN t_user creator ON d.created_by = creator.id
+         LEFT JOIN t_user dispatcher ON d.dispatcher_id = dispatcher.id
          WHERE ${whereClause}
          ORDER BY d.created_at DESC
          LIMIT ${pageSizeNum} OFFSET ${offset}`,
@@ -137,30 +134,26 @@ export class DispatchController {
           d.incident_id,
           i.title as incident_title,
           d.task_type,
-          d.title,
-          d.description,
           d.priority,
           d.task_status as status,
           d.resource_id,
-          r.name as resource_name,
-          r.type as resource_type,
-          d.assigned_to,
-          assignee.username as assignee_name,
-          assignee.real_name as assignee_real_name,
-          d.created_by,
-          creator.username as creator_name,
-          d.scheduled_start,
-          d.scheduled_end,
-          d.actual_start,
-          d.actual_end,
+          r.resource_name as resource_name,
+          rt.type_name as resource_type,
+          d.dispatcher_id,
+          dispatcher.username as dispatcher_name,
+          d.route_geojson,
+          d.estimated_duration,
+          d.estimated_arrival,
+          d.actual_arrival,
           d.notes,
+          d.completed_at,
           d.created_at,
           d.updated_at
          FROM t_dispatch_task d
          LEFT JOIN t_incident i ON d.incident_id = i.id
          LEFT JOIN t_resource r ON d.resource_id = r.id
-         LEFT JOIN t_user assignee ON d.assigned_to = assignee.id
-         LEFT JOIN t_user creator ON d.created_by = creator.id
+         LEFT JOIN t_resource_type rt ON r.resource_type_id = rt.id
+         LEFT JOIN t_user dispatcher ON d.dispatcher_id = dispatcher.id
          WHERE d.id = ? AND d.deleted_at IS NULL`,
         [id]
       );
@@ -194,40 +187,39 @@ export class DispatchController {
       const {
         incidentId,
         taskType,
-        title,
-        description,
-        priority = 'medium',
+        priority = 0,
         resourceId,
-        assignedTo,
-        scheduledStart,
-        scheduledEnd,
+        routeGeojson,
+        estimatedDuration,
+        notes,
       } = req.body;
 
       // 参数验证
-      if (!title) {
-        throw new ValidationError('任务标题不能为空');
+      if (!incidentId) {
+        throw new ValidationError('事件ID不能为空');
+      }
+
+      if (!resourceId) {
+        throw new ValidationError('资源ID不能为空');
       }
 
       const taskId = uuidv4();
 
       await query(
         `INSERT INTO t_dispatch_task (
-          id, incident_id, task_type, title, description, priority, status,
-          resource_id, assigned_to, created_by,
-          scheduled_start, scheduled_end, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, NOW())`,
+          id, incident_id, task_type, task_status, priority,
+          resource_id, dispatcher_id, route_geojson, estimated_duration, notes, created_at
+        ) VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, NOW())`,
         [
           taskId,
-          incidentId || null,
+          incidentId,
           taskType || 'emergency',
-          title,
-          description || null,
           priority,
-          resourceId || null,
-          assignedTo || null,
+          resourceId,
           req.user.userId,
-          scheduledStart || null,
-          scheduledEnd || null,
+          routeGeojson ? JSON.stringify(routeGeojson) : null,
+          estimatedDuration || null,
+          notes || null,
         ]
       );
 
@@ -270,17 +262,13 @@ export class DispatchController {
       }
 
       // 构建更新SQL
-      const updates: string[] = ['status = ?', 'updated_at = NOW()'];
+      const updates: string[] = ['task_status = ?', 'updated_at = NOW()'];
       const values: any[] = [status];
 
-      // 如果状态变为 in_progress，记录开始时间
-      if (status === 'in_progress' && tasks[0].status !== 'in_progress') {
-        updates.push('actual_start = NOW()');
-      }
-
-      // 如果状态变为 completed，记录结束时间
-      if (status === 'completed') {
-        updates.push('actual_end = NOW()');
+      // 如果状态变为 completed，记录到达时间和完成时间
+      if (status === 'completed' && tasks[0].status !== 'completed') {
+        updates.push('actual_arrival = NOW()');
+        updates.push('completed_at = NOW()');
       }
 
       if (notes !== undefined) {
@@ -316,13 +304,10 @@ export class DispatchController {
     try {
       const { id } = req.params;
       const {
-        title,
-        description,
         priority,
-        assignedTo,
         resourceId,
-        scheduledStart,
-        scheduledEnd,
+        routeGeojson,
+        estimatedDuration,
         notes,
       } = req.body;
 
@@ -340,24 +325,9 @@ export class DispatchController {
       const updates: string[] = [];
       const values: any[] = [];
 
-      if (title !== undefined) {
-        updates.push('title = ?');
-        values.push(title);
-      }
-
-      if (description !== undefined) {
-        updates.push('description = ?');
-        values.push(description);
-      }
-
       if (priority !== undefined) {
         updates.push('priority = ?');
         values.push(priority);
-      }
-
-      if (assignedTo !== undefined) {
-        updates.push('assigned_to = ?');
-        values.push(assignedTo);
       }
 
       if (resourceId !== undefined) {
@@ -365,14 +335,14 @@ export class DispatchController {
         values.push(resourceId);
       }
 
-      if (scheduledStart !== undefined) {
-        updates.push('scheduled_start = ?');
-        values.push(scheduledStart);
+      if (routeGeojson !== undefined) {
+        updates.push('route_geojson = ?');
+        values.push(routeGeojson ? JSON.stringify(routeGeojson) : null);
       }
 
-      if (scheduledEnd !== undefined) {
-        updates.push('scheduled_end = ?');
-        values.push(scheduledEnd);
+      if (estimatedDuration !== undefined) {
+        updates.push('estimated_duration = ?');
+        values.push(estimatedDuration);
       }
 
       if (notes !== undefined) {

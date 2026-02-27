@@ -12,51 +12,32 @@
  * @author Emergency Dispatch Team
  */
 
-import { useState, useEffect, useRef } from 'react';
-import {
-  Modal,
-  Form,
-  Input,
-  Select,
-  message,
-  Space,
-  Tag,
-  InputNumber,
-} from 'antd';
-import { http } from '@utils/http';
-import DataTable, { type SearchField } from '@/components/DataTable/DataTable';
-import type { ColumnsType } from 'antd/es/table';
-import type { Resource, ResourceStatus } from '@/types';
-
-interface ResourceFormData {
-  resourceTypeId: string;
-  resourceName: string;
-  resourceCode?: string;
-  resourceStatus: string;
-  longitude: number;
-  latitude: number;
-  altitude?: number;
-  departmentId?: string;
-}
+import { useState, useEffect, useRef } from "react";
+import { Modal, Form, Input, Select, App, Space, Tag, InputNumber } from "antd";
+import { http } from "@utils/http";
+import DataTable, { type SearchField } from "@/components/DataTable/DataTable";
+import type { ColumnsType } from "antd/es/table";
+import type { Resource, ResourceStatus } from "@/types";
 
 const STATUS_OPTIONS: { label: string; value: ResourceStatus }[] = [
-  { label: '在线', value: 'online' },
-  { label: '离线', value: 'offline' },
-  { label: '告警', value: 'alarm' },
-  { label: '处理中', value: 'processing' },
+  { label: "在线", value: "online" },
+  { label: "离线", value: "offline" },
+  { label: "告警", value: "alarm" },
+  { label: "处理中", value: "processing" },
 ];
 
 const STATUS_COLORS: Record<ResourceStatus, string> = {
-  online: 'success',
-  offline: 'default',
-  alarm: 'error',
-  processing: 'processing',
+  online: "success",
+  offline: "default",
+  alarm: "error",
+  processing: "processing",
 };
 
 /**
  * 资源管理页面组件
  */
 const ResourceManagement: React.FC = () => {
+  const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
   const [resources, setResources] = useState<Resource[]>([]);
   const [total, setTotal] = useState(0);
@@ -66,7 +47,7 @@ const ResourceManagement: React.FC = () => {
 
   // Modal状态
   const [modalVisible, setModalVisible] = useState(false);
-  const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
+  const [modalMode, setModalMode] = useState<"create" | "edit">("create");
   const [currentRecord, setCurrentRecord] = useState<Resource | null>(null);
   const [modalLoading, setModalLoading] = useState(false);
   const [form] = Form.useForm();
@@ -78,16 +59,16 @@ const ResourceManagement: React.FC = () => {
    */
   const searchFields: SearchField[] = [
     {
-      name: 'status',
-      label: '状态',
-      type: 'select',
+      name: "status",
+      label: "状态",
+      type: "select",
       options: STATUS_OPTIONS,
     },
     {
-      name: 'keyword',
-      label: '关键词',
-      type: 'input',
-      placeholder: '搜索资源名称或编码',
+      name: "keyword",
+      label: "关键词",
+      type: "input",
+      placeholder: "搜索资源名称或编码",
     },
   ];
 
@@ -96,65 +77,65 @@ const ResourceManagement: React.FC = () => {
    */
   const columns: ColumnsType<Resource> = [
     {
-      title: 'ID',
-      dataIndex: 'id',
-      key: 'id',
+      title: "ID",
+      dataIndex: "id",
+      key: "id",
       width: 100,
       ellipsis: true,
     },
     {
-      title: '资源名称',
-      dataIndex: 'resourceName',
-      key: 'resourceName',
+      title: "资源名称",
+      dataIndex: "resourceName",
+      key: "resourceName",
     },
     {
-      title: '资源编码',
-      dataIndex: 'resourceCode',
-      key: 'resourceCode',
+      title: "资源编码",
+      dataIndex: "resourceCode",
+      key: "resourceCode",
       width: 150,
     },
     {
-      title: '类型',
-      dataIndex: 'typeName',
-      key: 'typeName',
+      title: "类型",
+      dataIndex: "typeName",
+      key: "typeName",
       width: 120,
     },
     {
-      title: '状态',
-      dataIndex: 'resourceStatus',
-      key: 'resourceStatus',
+      title: "状态",
+      dataIndex: "resourceStatus",
+      key: "resourceStatus",
       width: 100,
-      render: (status) => (
-        <Tag color={STATUS_COLORS[status] || 'default'}>
-          {STATUS_OPTIONS.find(s => s.value === status)?.label || status}
+      render: (status: ResourceStatus) => (
+        <Tag color={STATUS_COLORS[status] || "default"}>
+          {STATUS_OPTIONS.find((s) => s.value === status)?.label || status}
         </Tag>
       ),
     },
     {
-      title: '经度',
-      dataIndex: 'longitude',
-      key: 'longitude',
+      title: "经度",
+      dataIndex: "longitude",
+      key: "longitude",
       width: 120,
     },
     {
-      title: '纬度',
-      dataIndex: 'latitude',
-      key: 'latitude',
+      title: "纬度",
+      dataIndex: "latitude",
+      key: "latitude",
       width: 120,
     },
     {
-      title: '速度',
-      dataIndex: 'speed',
-      key: 'speed',
+      title: "速度",
+      dataIndex: "speed",
+      key: "speed",
       width: 100,
-      render: (speed) => (speed ? `${speed.toFixed(2)} km/h` : '-'),
+      render: (speed) => (typeof speed === "number" ? `${speed.toFixed(2)} km/h` : "-"),
     },
     {
-      title: '方向',
-      dataIndex: 'direction',
-      key: 'direction',
+      title: "方向",
+      dataIndex: "direction",
+      key: "direction",
       width: 100,
-      render: (direction) => (direction ? `${direction.toFixed(0)}°` : '-'),
+      render: (direction) => (typeof direction === "number" ? `${direction.toFixed(0)}°` : "-"),
     },
   ];
 
@@ -164,7 +145,7 @@ const ResourceManagement: React.FC = () => {
   const fetchResources = async () => {
     setLoading(true);
     try {
-      const res = await http.get('/api/v1/resources', {
+      const res = await http.get("/api/v1/resources", {
         params: { page, pageSize, ...searchParams.current },
       });
       if (res?.data) {
@@ -172,7 +153,7 @@ const ResourceManagement: React.FC = () => {
         setTotal(res.data.total || 0);
       }
     } catch (error) {
-      message.error('获取资源列表失败');
+      message.error("获取资源列表失败");
     } finally {
       setLoading(false);
     }
@@ -183,17 +164,17 @@ const ResourceManagement: React.FC = () => {
    */
   const fetchResourceTypes = async () => {
     try {
-      const res = await http.get('/api/v1/resources/types');
+      const res = await http.get("/api/v1/resources/types");
       if (res?.data) {
         setResourceTypes(
           res.data.map((t: any) => ({
-            label: t.typeName,
+            label: t.type_name,
             value: t.id,
-          }))
+          })),
         );
       }
     } catch (error) {
-      console.error('获取资源类型失败', error);
+      console.error("获取资源类型失败", error);
     }
   };
 
@@ -206,7 +187,7 @@ const ResourceManagement: React.FC = () => {
    * 打开新增Modal
    */
   const handleAdd = () => {
-    setModalMode('create');
+    setModalMode("create");
     setCurrentRecord(null);
     form.resetFields();
     setModalVisible(true);
@@ -216,7 +197,7 @@ const ResourceManagement: React.FC = () => {
    * 打开编辑Modal
    */
   const handleEdit = (record: Resource) => {
-    setModalMode('edit');
+    setModalMode("edit");
     setCurrentRecord(record);
     form.setFieldsValue({
       resourceTypeId: record.resourceTypeId,
@@ -239,18 +220,18 @@ const ResourceManagement: React.FC = () => {
       const values = await form.validateFields();
       setModalLoading(true);
 
-      if (modalMode === 'create') {
-        await http.post('/api/v1/resources', values);
-        message.success('创建成功');
+      if (modalMode === "create") {
+        await http.post("/api/v1/resources", values);
+        message.success("创建成功");
       } else {
         await http.put(`/api/v1/resources/${currentRecord?.id}`, values);
-        message.success('更新成功');
+        message.success("更新成功");
       }
 
       setModalVisible(false);
       fetchResources();
     } catch (error) {
-      message.error(modalMode === 'create' ? '创建失败' : '更新失败');
+      message.error(modalMode === "create" ? "创建失败" : "更新失败");
     } finally {
       setModalLoading(false);
     }
@@ -262,10 +243,10 @@ const ResourceManagement: React.FC = () => {
   const handleDelete = async (record: Resource) => {
     try {
       await http.delete(`/api/v1/resources/${record.id}`);
-      message.success('删除成功');
+      message.success("删除成功");
       fetchResources();
     } catch (error) {
-      message.error('删除失败');
+      message.error("删除失败");
     }
   };
 
@@ -294,7 +275,7 @@ const ResourceManagement: React.FC = () => {
 
       {/* 新增/编辑Modal */}
       <Modal
-        title={modalMode === 'create' ? '创建资源' : '编辑资源'}
+        title={modalMode === "create" ? "创建资源" : "编辑资源"}
         open={modalVisible}
         onOk={handleModalSubmit}
         onCancel={() => setModalVisible(false)}
@@ -305,14 +286,16 @@ const ResourceManagement: React.FC = () => {
           <Form.Item
             label="资源类型"
             name="resourceTypeId"
-            rules={[{ required: true, message: '请选择资源类型' }]}
+            rules={[{ required: true, message: "请选择资源类型" }]}
           >
             <Select
               options={resourceTypes}
               placeholder="请选择资源类型"
               showSearch
               filterOption={(input, option) =>
-                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                (option?.label ?? "")
+                  .toLowerCase()
+                  .includes(input.toLowerCase())
               }
             />
           </Form.Item>
@@ -320,7 +303,7 @@ const ResourceManagement: React.FC = () => {
           <Form.Item
             label="资源名称"
             name="resourceName"
-            rules={[{ required: true, message: '请输入资源名称' }]}
+            rules={[{ required: true, message: "请输入资源名称" }]}
           >
             <Input placeholder="请输入资源名称" />
           </Form.Item>
@@ -332,16 +315,16 @@ const ResourceManagement: React.FC = () => {
           <Form.Item
             label="状态"
             name="resourceStatus"
-            rules={[{ required: true, message: '请选择状态' }]}
+            rules={[{ required: true, message: "请选择状态" }]}
           >
             <Select options={STATUS_OPTIONS} placeholder="请选择状态" />
           </Form.Item>
 
-          <Space size="middle" style={{ width: '100%' }}>
+          <Space size="middle" style={{ width: "100%" }}>
             <Form.Item
               label="经度"
               name="longitude"
-              rules={[{ required: true, message: '请输入经度' }]}
+              rules={[{ required: true, message: "请输入经度" }]}
             >
               <InputNumber
                 style={{ width: 200 }}
@@ -353,7 +336,7 @@ const ResourceManagement: React.FC = () => {
             <Form.Item
               label="纬度"
               name="latitude"
-              rules={[{ required: true, message: '请输入纬度' }]}
+              rules={[{ required: true, message: "请输入纬度" }]}
             >
               <InputNumber
                 style={{ width: 200 }}

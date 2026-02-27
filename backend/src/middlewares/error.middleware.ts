@@ -39,7 +39,7 @@ export class AppError extends Error {
  * 验证错误类
  */
 export class ValidationError extends AppError {
-  constructor(message: string, errors?: any[]) {
+  constructor(message: string, _errors?: any[]) {
     super(message, 400, 400);
     this.name = 'ValidationError';
   }
@@ -84,7 +84,7 @@ export function errorHandler(
   err: Error | AppError,
   req: Request,
   res: Response,
-  next: NextFunction
+  _next: NextFunction
 ): void {
   // 记录错误日志
   logger.error(`错误处理: ${err.message}`, {
@@ -97,11 +97,12 @@ export function errorHandler(
 
   // 判断是否为自定义错误
   if (err instanceof AppError) {
-    return res.status(err.statusCode).json({
+    res.status(err.statusCode).json({
       code: err.code,
       message: err.message,
       ...(config.app.env === 'development' && { stack: err.stack }),
     });
+    return;
   }
 
   // 处理其他类型的错误

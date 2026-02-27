@@ -13,13 +13,13 @@
  * @author Emergency Dispatch Team
  */
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Modal,
   Form,
   Input,
   Select,
-  message,
+  App,
   Space,
   Tag,
   DatePicker,
@@ -34,17 +34,6 @@ import type {
   IncidentLevel,
   IncidentStatus,
 } from "@/types";
-
-interface IncidentFormData {
-  type: string;
-  title: string;
-  description?: string;
-  level: string;
-  location?: string;
-  latitude?: number;
-  longitude?: number;
-  occurredAt?: string;
-}
 
 const INCIDENT_TYPES: { label: string; value: IncidentType }[] = [
   { label: "火灾", value: "fire" },
@@ -84,6 +73,7 @@ const LEVEL_COLORS: Record<IncidentLevel, string> = {
  * 事件管理页面组件
  */
 const IncidentManagement: React.FC = () => {
+  const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
   const [incidents, setIncidents] = useState<IncidentListItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -163,7 +153,7 @@ const IncidentManagement: React.FC = () => {
       dataIndex: "level",
       key: "level",
       width: 80,
-      render: (level) => (
+      render: (level: IncidentLevel) => (
         <Tag color={LEVEL_COLORS[level] || "default"}>
           {INCIDENT_LEVELS.find((l) => l.value === level)?.label || level}
         </Tag>
@@ -174,7 +164,7 @@ const IncidentManagement: React.FC = () => {
       dataIndex: "status",
       key: "status",
       width: 100,
-      render: (status) => (
+      render: (status: IncidentStatus) => (
         <Tag color={STATUS_COLORS[status] || "default"}>
           {INCIDENT_STATUSES.find((s) => s.value === status)?.label || status}
         </Tag>
@@ -203,7 +193,7 @@ const IncidentManagement: React.FC = () => {
   /**
    * 获取事件列表
    */
-  const fetchIncidents = async () => {
+  const fetchIncidents = useCallback(async () => {
     setLoading(true);
     try {
       const res = await http.get("/api/v1/incidents", {
@@ -218,7 +208,7 @@ const IncidentManagement: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, pageSize, message]);
 
   useEffect(() => {
     fetchIncidents();

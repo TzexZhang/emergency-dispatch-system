@@ -18,7 +18,7 @@ import { Router } from 'express';
 import { IncidentController } from '@controllers/incident.controller';
 import { authMiddleware } from '@middlewares/auth.middleware';
 
-const router = Router();
+const router: any = Router();
 const incidentController = new IncidentController();
 
 // 所有路由都需要认证

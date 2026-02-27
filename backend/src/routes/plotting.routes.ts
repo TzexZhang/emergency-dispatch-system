@@ -18,7 +18,7 @@ import { Router } from 'express';
 import { PlottingController } from '@controllers/plotting.controller';
 import { authMiddleware } from '@middlewares/auth.middleware';
 
-const router = Router();
+const router: any = Router();
 const plottingController = new PlottingController();
 
 // 所有路由都需要认证

@@ -14,37 +14,30 @@
 
 import multer from 'multer';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { ValidationError } from './error.middleware';
 
-// 获取当前文件的目录路径
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 // 上传目录的绝对路径
-const UPLOAD_DIR = path.resolve(__dirname, '../../uploads');
+const UPLOAD_DIR = path.resolve(__dirname, '../uploads');
 const AVATAR_DIR = path.join(UPLOAD_DIR, 'avatars');
 
 /**
  * 头像上传配置
  */
-export const uploadAvatar = multer({
+export const uploadAvatar: any = multer({
   storage: multer.diskStorage({
-    destination: (req, file, cb) => {
+    destination: (_req, _file, cb) => {
       cb(null, AVATAR_DIR);
     },
-    filename: (req, file, cb) => {
-      // 生成唯一文件名: timestamp-originalname
+    filename: (_req, file, cb) => {
       const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
       const ext = path.extname(file.originalname);
       cb(null, `avatar-${uniqueSuffix}${ext}`);
     },
   }),
   limits: {
-    fileSize: 2 * 1024 * 1024, // 限制2MB
+    fileSize: 2 * 1024 * 1024,
   },
-  fileFilter: (req, file, cb) => {
-    // 只允许图片格式
+  fileFilter: (_req, file, cb) => {
     const allowedMimes = [
       'image/jpeg',
       'image/jpg',
@@ -64,13 +57,13 @@ export const uploadAvatar = multer({
 /**
  * 通用文件上传配置
  */
-export const uploadSingle = (fieldName: string = 'file', maxSize: number = 5 * 1024 * 1024) => {
+export const uploadSingle = (fieldName: string = 'file', maxSize: number = 5 * 1024 * 1024): any => {
   return multer({
     storage: multer.diskStorage({
-      destination: (req, file, cb) => {
+      destination: (_req, _file, cb) => {
         cb(null, UPLOAD_DIR);
       },
-      filename: (req, file, cb) => {
+      filename: (_req, file, cb) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
         const ext = path.extname(file.originalname);
         cb(null, `file-${uniqueSuffix}${ext}`);
@@ -85,13 +78,13 @@ export const uploadSingle = (fieldName: string = 'file', maxSize: number = 5 * 1
 /**
  * 多文件上传配置
  */
-export const uploadMultiple = (fieldName: string = 'files', maxCount: number = 10) => {
+export const uploadMultiple = (fieldName: string = 'files', maxCount: number = 10): any => {
   return multer({
     storage: multer.diskStorage({
-      destination: (req, file, cb) => {
+      destination: (_req, _file, cb) => {
         cb(null, UPLOAD_DIR);
       },
-      filename: (req, file, cb) => {
+      filename: (_req, file, cb) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
         const ext = path.extname(file.originalname);
         cb(null, `file-${uniqueSuffix}${ext}`);

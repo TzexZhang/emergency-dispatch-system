@@ -42,9 +42,13 @@ export interface Resource {
   direction?: number;
   properties?: Record<string, any>;
   departmentId?: string;
+  departmentName?: string;
   typeName?: string;
   iconUrl?: string;
   color?: string;
+  contactPerson?: string;
+  contactPhone?: string;
+  updatedAt?: string;
 }
 
 export type ResourceStatus = 'online' | 'offline' | 'alarm' | 'processing';

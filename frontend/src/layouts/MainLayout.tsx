@@ -13,18 +13,9 @@
  * @author Emergency Dispatch Team
  */
 
-import { useState } from 'react';
-import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import {
-  Layout,
-  Menu,
-  Dropdown,
-  Avatar,
-  Space,
-  theme,
-  Button,
-  Divider,
-} from 'antd';
+import { useState } from "react";
+import { Outlet, useNavigate, useLocation } from "react-router-dom";
+import { Layout, Menu, Dropdown, Avatar, Space, theme, Button } from "antd";
 import {
   DashboardOutlined,
   EnvironmentOutlined,
@@ -37,10 +28,10 @@ import {
   SettingOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
-} from '@ant-design/icons';
-import { useUserStore } from '@/store/userStore';
-import type { MenuProps } from 'antd';
-import './MainLayout.less';
+} from "@ant-design/icons";
+import { useUserStore } from "@/store/userStore";
+import type { MenuProps } from "antd";
+import "./MainLayout.less";
 
 const { Header, Sider, Content } = Layout;
 
@@ -59,72 +50,72 @@ const MainLayout: React.FC = () => {
   /**
    * 菜单项配置
    */
-  const menuItems: MenuProps['items'] = [
+  const menuItems: MenuProps["items"] = [
     {
-      key: '/dashboard',
+      key: "/dashboard",
       icon: <DashboardOutlined />,
-      label: '指挥大屏',
+      label: "指挥大屏",
     },
     {
-      key: '/resource',
+      key: "/resource",
       icon: <EnvironmentOutlined />,
-      label: '资源监控',
+      label: "资源监控",
       children: [
         {
-          key: '/resource/monitor',
-          label: '实时监控',
+          key: "/resource/monitor",
+          label: "实时监控",
         },
         {
-          key: '/resource/management',
-          label: '资源管理',
+          key: "/resource/management",
+          label: "资源管理",
         },
       ],
     },
     {
-      key: '/incident',
+      key: "/incident",
       icon: <AlertOutlined />,
-      label: '事件管理',
+      label: "事件管理",
       children: [
         {
-          key: '/incident/management',
-          label: '事件列表',
+          key: "/incident/management",
+          label: "事件列表",
         },
         {
-          key: '/incident/map',
-          label: '事件地图',
+          key: "/incident/map",
+          label: "事件地图",
         },
       ],
     },
     {
-      key: '/dispatch',
+      key: "/dispatch",
       icon: <CarOutlined />,
-      label: '调度任务',
+      label: "调度任务",
       children: [
         {
-          key: '/dispatch/management',
-          label: '任务管理',
+          key: "/dispatch/management",
+          label: "任务管理",
         },
       ],
     },
     {
-      key: '/plotting',
+      key: "/plotting",
       icon: <RadarChartOutlined />,
-      label: '战术标绘',
+      label: "战术标绘",
       children: [
         {
-          key: '/plotting/management',
-          label: '标绘管理',
+          key: "/plotting/management",
+          label: "标绘管理",
         },
       ],
     },
     {
-      key: '/playback',
+      key: "/playback",
       icon: <HistoryOutlined />,
-      label: '轨迹回放',
+      label: "轨迹回放",
       children: [
         {
-          key: '/playback/management',
-          label: '轨迹查询',
+          key: "/playback/management",
+          label: "轨迹查询",
         },
       ],
     },
@@ -133,26 +124,26 @@ const MainLayout: React.FC = () => {
   /**
    * 用户下拉菜单
    */
-  const userMenuItems: MenuProps['items'] = [
+  const userMenuItems: MenuProps["items"] = [
     {
-      key: 'profile',
+      key: "profile",
       icon: <UserOutlined />,
-      label: '个人信息',
-      onClick: () => navigate('/profile'),
+      label: "个人信息",
+      onClick: () => navigate("/profile"),
     },
     {
-      key: 'settings',
+      key: "settings",
       icon: <SettingOutlined />,
-      label: '系统设置',
-      onClick: () => navigate('/settings'),
+      label: "系统设置",
+      onClick: () => navigate("/settings"),
     },
     {
-      type: 'divider',
+      type: "divider",
     },
     {
-      key: 'logout',
+      key: "logout",
       icon: <LogoutOutlined />,
-      label: '退出登录',
+      label: "退出登录",
       onClick: handleLogout,
       danger: true,
     },
@@ -161,7 +152,7 @@ const MainLayout: React.FC = () => {
   /**
    * 处理菜单点击
    */
-  const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
+  const handleMenuClick: MenuProps["onClick"] = ({ key }) => {
     navigate(key);
   };
 
@@ -170,7 +161,7 @@ const MainLayout: React.FC = () => {
    */
   function handleLogout() {
     logout();
-    navigate('/login');
+    navigate("/login");
   }
 
   /**
@@ -178,16 +169,15 @@ const MainLayout: React.FC = () => {
    */
   const getSelectedKeys = () => {
     const path = location.pathname;
-    // 如果是当前页面，返回该页面
-    // 如果是子页面，返回父级菜单
     for (const item of menuItems) {
+      if (!item) continue;
       if (item?.key === path) {
         return [path];
       }
-      if (item?.children) {
+      if ("children" in item && item.children) {
         const child = item.children.find((c: any) => c.key === path);
         if (child) {
-          return [child.key];
+          return [child.key as string];
         }
       }
     }
@@ -201,7 +191,8 @@ const MainLayout: React.FC = () => {
     const path = location.pathname;
     const openKeys: string[] = [];
     for (const item of menuItems) {
-      if (item?.children) {
+      if (!item) continue;
+      if ("children" in item && item.children) {
         const hasMatch = item.children.some((c: any) => path.startsWith(c.key));
         if (hasMatch) {
           openKeys.push(item.key as string);
@@ -216,10 +207,9 @@ const MainLayout: React.FC = () => {
    */
   const getUserAvatar = () => {
     if (user?.avatar) {
-      // 如果是完整URL，直接使用；否则拼接后端地址
-      const avatarUrl = user.avatar.startsWith('http')
+      const avatarUrl = user.avatar.startsWith("http")
         ? user.avatar
-        : `${import.meta.env.VITE_API_URL}${user.avatar}`;
+        : `${import.meta.env.VITE_API_BASE_URL}${user.avatar}`;
       return avatarUrl;
     }
     return undefined;
@@ -254,11 +244,11 @@ const MainLayout: React.FC = () => {
         {/* 顶部Header */}
         <Header
           style={{
-            padding: '0 24px',
+            padding: "0 24px",
             background: colorBgContainer,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
           }}
         >
           {/* 左侧：折叠按钮 */}
@@ -267,7 +257,7 @@ const MainLayout: React.FC = () => {
             icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
             onClick={() => setCollapsed(!collapsed)}
             style={{
-              fontSize: '16px',
+              fontSize: "16px",
               width: 48,
               height: 48,
             }}
@@ -276,13 +266,15 @@ const MainLayout: React.FC = () => {
           {/* 右侧：用户信息 */}
           <Space size="middle">
             <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
-              <Space style={{ cursor: 'pointer' }}>
+              <Space style={{ cursor: "pointer" }}>
                 <Avatar
                   src={getUserAvatar()}
                   icon={<UserOutlined />}
                   size="default"
                 />
-                <span className="user-name">{user?.realName || user?.username}</span>
+                <span className="user-name">
+                  {user?.realName || user?.username}
+                </span>
               </Space>
             </Dropdown>
           </Space>
@@ -291,12 +283,12 @@ const MainLayout: React.FC = () => {
         {/* 内容区域 */}
         <Content
           style={{
-            margin: '16px',
+            margin: "16px",
             padding: 24,
             minHeight: 280,
             background: colorBgContainer,
             borderRadius: borderRadiusLG,
-            overflow: 'auto',
+            overflow: "auto",
           }}
         >
           <Outlet />

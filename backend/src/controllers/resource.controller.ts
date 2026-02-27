@@ -13,7 +13,7 @@
 
 import { Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import { query, insert, update, deleteData } from '@utils/db';
+import { query, insert, update } from '@utils/db';
 import { NotFoundError, ValidationError } from '@middlewares/error.middleware';
 import { logger } from '@utils/logger';
 
@@ -353,9 +353,38 @@ export class ResourceController {
   };
 
   /**
+   * 获取资源类型列表
+   */
+  public getTypes = async (_req: Request, res: Response): Promise<void> => {
+    try {
+      const types = await query<any[]>(
+        `SELECT
+          id,
+          type_code,
+          type_name,
+          category,
+          icon_url,
+          color,
+          sort_order
+         FROM t_resource_type
+         ORDER BY sort_order ASC, type_name ASC`
+      );
+
+      res.json({
+        code: 200,
+        message: 'success',
+        data: types,
+      });
+    } catch (error) {
+      logger.error('获取资源类型失败:', error);
+      throw error;
+    }
+  };
+
+  /**
    * 资源统计
    */
-  public getStats = async (req: Request, res: Response): Promise<void> => {
+  public getStats = async (_req: Request, res: Response): Promise<void> => {
     try {
       // 按类型统计
       const typeStats = await query<any[]>(
@@ -387,7 +416,10 @@ export class ResourceController {
         code: 200,
         message: 'success',
         data: {
-          total: totalStats[0],
+          total: totalStats[0]?.total || 0,
+          online: totalStats[0]?.online || 0,
+          offline: totalStats[0]?.offline || 0,
+          alarm: totalStats[0]?.alarm || 0,
           byType: typeStats,
         },
       });

@@ -14,7 +14,7 @@
 
 import { Request, Response } from 'express';
 import axios from 'axios';
-import turf from '@turf/turf';
+import * as turf from '@turf/turf';
 import { query } from '@utils/db';
 import { config } from '@utils/config';
 import { logger } from '@utils/logger';
@@ -65,8 +65,12 @@ export class SpatialController {
                   : 0,
               },
             };
-          } catch (error) {
-            logger.error(`GraphHopper等时圈计算失败 (${minute}分钟):`, error);
+          } catch (error: any) {
+            logger.error(`GraphHopper等时圈计算失败 (${minute}分钟):`, {
+              message: error.message,
+              code: error.code,
+              status: error.response?.status
+            });
             return null;
           }
         })
@@ -104,7 +108,8 @@ export class SpatialController {
    */
   public buffer = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { lng, lat, radius = 1000, rings = 3, unit = 'meters' } = req.body;
+      const { center, radius = 1000, rings = 3, unit = 'meters' } = req.body;
+      const { lng, lat } = center || {};
 
       if (!lng || !lat) {
         throw new ValidationError('缺少坐标参数');
@@ -120,6 +125,11 @@ export class SpatialController {
       for (let i = 1; i <= rings; i++) {
         const bufferRadius = step * i;
         const buffer = turf.buffer(point, bufferRadius, { units: unit as any });
+
+        if (!buffer) {
+          throw new Error(`无法生成半径为 ${bufferRadius} 的缓冲区`);
+        }
+
         const area = turf.area(buffer);
 
         buffers.push({
@@ -150,9 +160,25 @@ export class SpatialController {
    */
   public within = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { polygon, type = 'resource', buffer = 0 } = req.body;
+      const { polygon, type = 'resource' } = req.body;
 
-      if (!polygon || polygon.length < 3) {
+      if (!polygon) {
+        throw new ValidationError('多边形坐标无效');
+      }
+
+      let coords: number[][];
+
+      if (Array.isArray(polygon) && polygon.length > 0 && Array.isArray(polygon[0])) {
+        if (Array.isArray(polygon[0][0])) {
+          coords = polygon[0];
+        } else {
+          coords = polygon;
+        }
+      } else {
+        throw new ValidationError('多边形坐标格式无效');
+      }
+
+      if (coords.length < 3) {
         throw new ValidationError('多边形坐标无效');
       }
 
@@ -162,17 +188,17 @@ export class SpatialController {
       switch (type) {
         case 'resource':
           // 查询范围内的资源
-          results = await this.queryResourcesWithin(polygon);
+          results = await this.queryResourcesWithin(coords);
           break;
 
         case 'building':
           // 查询范围内的敏感建筑
-          results = await this.queryBuildingsWithin(polygon);
+          results = await this.queryBuildingsWithin(coords);
           break;
 
         case 'incident':
           // 查询范围内的事件
-          results = await this.queryIncidentsWithin(polygon);
+          results = await this.queryIncidentsWithin(coords);
           break;
 
         default:
@@ -183,7 +209,7 @@ export class SpatialController {
         code: 200,
         message: 'success',
         data: {
-          polygon,
+          polygon: coords,
           type,
           count: results.length,
           list: results,
@@ -266,16 +292,14 @@ export class SpatialController {
    * 查询等时圈覆盖的敏感建筑
    */
   private async queryBuildingsInIsochrones(
-    lng: number,
-    lat: number,
+    _lng: number,
+    _lat: number,
     isochrones: any[]
   ): Promise<any[]> {
     const results = [];
 
     for (const isochrone of isochrones) {
       if (!isochrone.polygon || isochrone.polygon.length === 0) continue;
-
-      const polygonCoords = isochrone.polygon[0];
 
       // 查询多边形内的建筑
       const buildings = await query<any[]>(
@@ -287,8 +311,7 @@ export class SpatialController {
           latitude,
           capacity
          FROM t_sensitive_building
-         WHERE deleted_at IS NULL
-           AND ST_Contains(
+         WHERE ST_Contains(
              ST_GeomFromText(
                CONCAT('POLYGON((',
                  GROUP_CONCAT(longitude, ' ', latitude SEPARATOR ','),
@@ -340,16 +363,15 @@ export class SpatialController {
    */
   private async queryBuildingsWithin(polygon: number[][]): Promise<any[]> {
     const buildings = await query<any[]>(
-      `SELECT
-        id,
-        building_name,
-        building_type,
-        longitude,
-        latitude,
-        address,
-        capacity
-       FROM t_sensitive_building
-       WHERE deleted_at IS NULL`
+        `SELECT
+          id,
+          building_name,
+          building_type,
+          longitude,
+          latitude,
+          address,
+          capacity
+       FROM t_sensitive_building`
     );
 
     const poly = turf.polygon([polygon]);
@@ -364,15 +386,14 @@ export class SpatialController {
    */
   private async queryIncidentsWithin(polygon: number[][]): Promise<any[]> {
     const incidents = await query<any[]>(
-      `SELECT
-        id,
-        incident_type,
-        incident_level,
-        title,
-        longitude,
-        latitude,
-        incident_status,
-        reported_at
+        `SELECT
+          id,
+          incident_level,
+          title,
+          longitude,
+          latitude,
+          incident_status,
+          reported_at
        FROM t_incident
        WHERE deleted_at IS NULL`
     );

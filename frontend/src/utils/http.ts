@@ -13,7 +13,7 @@
  */
 
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
-import { message as antdMessage } from 'antd';
+import { getMessage } from '@/utils/message';
 import type { ApiResponse } from '@/types';
 import { getToken } from '@/store/userStore';
 import { useUserStore } from '@/store/userStore';
@@ -64,7 +64,11 @@ http.interceptors.response.use(
     // 如果响应有 code 字段，处理业务错误码
     if (res && typeof res === 'object' && 'code' in res) {
       if (res.code !== 200) {
-        antdMessage.error(res.message || '请求失败');
+        try {
+          getMessage().error(res.message || '请求失败');
+        } catch (error) {
+          // Message instance not initialized yet
+        }
         return Promise.reject(new Error(res.message));
       }
     }
@@ -78,29 +82,61 @@ http.interceptors.response.use(
 
       switch (status) {
         case 401:
-          antdMessage.error('未授权，请重新登录');
+          try {
+            getMessage().error('未授权，请重新登录');
+          } catch (error) {
+            // Message instance not initialized yet
+          }
           // 使用userStore的logout清除状态
           useUserStore.getState().logout();
           window.location.href = '/login';
           break;
         case 403:
-          antdMessage.error('权限不足');
+          try {
+            getMessage().error('权限不足');
+          } catch (error) {
+            // Message instance not initialized yet
+          }
           break;
         case 404:
-          antdMessage.error('请求的资源不存在');
+          try {
+            getMessage().error('请求的资源不存在');
+          } catch (error) {
+            // Message instance not initialized yet
+          }
           break;
         case 500:
-          antdMessage.error('服务器内部错误');
+          try {
+            getMessage().error('服务器内部错误');
+          } catch (error) {
+            // Message instance not initialized yet
+          }
           break;
         default:
-          antdMessage.error(data?.message || '请求失败');
+          try {
+            getMessage().error(data?.message || '请求失败');
+          } catch (error) {
+            // Message instance not initialized yet
+          }
       }
     } else if (error.code === 'ECONNABORTED') {
-      antdMessage.error('请求超时');
+      try {
+        getMessage().error('请求超时');
+      } catch (error) {
+        // Message instance not initialized yet
+      }
     } else if (error.message === 'Network Error') {
-      antdMessage.error('网络错误，请检查网络连接');
+      try {
+        getMessage().error('网络错误，请检查网络连接');
+      } catch (error) {
+        // Message instance not initialized yet
+      }
     } else {
-      antdMessage.error('请求失败');
+      try {
+        getMessage().error('请求失败');
+      } catch (error) {
+        // Message instance not initialized yet
+      }
     }
 
     return Promise.reject(error);

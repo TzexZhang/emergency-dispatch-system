@@ -13,19 +13,11 @@
  * @author Emergency Dispatch Team
  */
 
-import { useState, useEffect, useRef } from 'react';
-import {
-  Modal,
-  Form,
-  Input,
-  Select,
-  message,
-  Space,
-  Tag,
-} from 'antd';
-import { http } from '@utils/http';
-import DataTable, { type SearchField } from '@/components/DataTable/DataTable';
-import type { ColumnsType } from 'antd/es/table';
+import { useState, useEffect, useRef } from "react";
+import { Modal, Form, Input, Select, message, Tag } from "antd";
+import { http } from "@utils/http";
+import DataTable, { type SearchField } from "@/components/DataTable/DataTable";
+import type { ColumnsType } from "antd/es/table";
 
 interface Plotting {
   id: string;
@@ -41,33 +33,24 @@ interface Plotting {
   updated_at: string;
 }
 
-interface PlottingFormData {
-  incidentId?: string;
-  type: string;
-  title?: string;
-  description?: string;
-  geometry?: any;
-  style?: any;
-}
-
 const PLOTTING_TYPES = [
-  { label: '点', value: 'point' },
-  { label: '线', value: 'line' },
-  { label: '面', value: 'polygon' },
-  { label: '圆', value: 'circle' },
-  { label: '矩形', value: 'rectangle' },
-  { label: '箭头', value: 'arrow' },
-  { label: '文本', value: 'text' },
+  { label: "点", value: "point" },
+  { label: "线", value: "line" },
+  { label: "面", value: "polygon" },
+  { label: "圆", value: "circle" },
+  { label: "矩形", value: "rectangle" },
+  { label: "箭头", value: "arrow" },
+  { label: "文本", value: "text" },
 ];
 
 const TYPE_COLORS: Record<string, string> = {
-  point: 'blue',
-  line: 'green',
-  polygon: 'orange',
-  circle: 'purple',
-  rectangle: 'cyan',
-  arrow: 'red',
-  text: 'default',
+  point: "blue",
+  line: "green",
+  polygon: "orange",
+  circle: "purple",
+  rectangle: "cyan",
+  arrow: "red",
+  text: "default",
 };
 
 /**
@@ -82,7 +65,7 @@ const PlottingManagement: React.FC = () => {
 
   // Modal状态
   const [modalVisible, setModalVisible] = useState(false);
-  const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
+  const [modalMode, setModalMode] = useState<"create" | "edit">("create");
   const [currentRecord, setCurrentRecord] = useState<Plotting | null>(null);
   const [modalLoading, setModalLoading] = useState(false);
   const [form] = Form.useForm();
@@ -94,15 +77,15 @@ const PlottingManagement: React.FC = () => {
    */
   const searchFields: SearchField[] = [
     {
-      name: 'incidentId',
-      label: '事件ID',
-      type: 'input',
-      placeholder: '请输入事件ID',
+      name: "incidentId",
+      label: "事件ID",
+      type: "input",
+      placeholder: "请输入事件ID",
     },
     {
-      name: 'type',
-      label: '标绘类型',
-      type: 'select',
+      name: "type",
+      label: "标绘类型",
+      type: "select",
       options: PLOTTING_TYPES,
     },
   ];
@@ -112,52 +95,52 @@ const PlottingManagement: React.FC = () => {
    */
   const columns: ColumnsType<Plotting> = [
     {
-      title: 'ID',
-      dataIndex: 'id',
-      key: 'id',
+      title: "ID",
+      dataIndex: "id",
+      key: "id",
       width: 100,
       ellipsis: true,
     },
     {
-      title: '类型',
-      dataIndex: 'type',
-      key: 'type',
+      title: "类型",
+      dataIndex: "type",
+      key: "type",
       width: 100,
       render: (type) => (
-        <Tag color={TYPE_COLORS[type] || 'default'}>
-          {PLOTTING_TYPES.find(t => t.value === type)?.label || type}
+        <Tag color={TYPE_COLORS[type] || "default"}>
+          {PLOTTING_TYPES.find((t) => t.value === type)?.label || type}
         </Tag>
       ),
     },
     {
-      title: '标题',
-      dataIndex: 'title',
-      key: 'title',
+      title: "标题",
+      dataIndex: "title",
+      key: "title",
       ellipsis: true,
     },
     {
-      title: '事件',
-      dataIndex: 'incident_title',
-      key: 'incident_title',
+      title: "事件",
+      dataIndex: "incident_title",
+      key: "incident_title",
       width: 150,
       ellipsis: true,
     },
     {
-      title: '描述',
-      dataIndex: 'description',
-      key: 'description',
+      title: "描述",
+      dataIndex: "description",
+      key: "description",
       ellipsis: true,
     },
     {
-      title: '创建人',
-      dataIndex: 'creator_name',
-      key: 'creator_name',
+      title: "创建人",
+      dataIndex: "creator_name",
+      key: "creator_name",
       width: 120,
     },
     {
-      title: '创建时间',
-      dataIndex: 'created_at',
-      key: 'created_at',
+      title: "创建时间",
+      dataIndex: "created_at",
+      key: "created_at",
       width: 180,
     },
   ];
@@ -168,7 +151,7 @@ const PlottingManagement: React.FC = () => {
   const fetchPlottings = async () => {
     setLoading(true);
     try {
-      const res = await http.get('/api/v1/plotting', {
+      const res = await http.get("/api/v1/plotting", {
         params: { page, pageSize, ...searchParams.current },
       });
       if (res?.data) {
@@ -176,7 +159,7 @@ const PlottingManagement: React.FC = () => {
         setTotal(res.data.total || 0);
       }
     } catch (error) {
-      message.error('获取标绘列表失败');
+      message.error("获取标绘列表失败");
     } finally {
       setLoading(false);
     }
@@ -190,7 +173,7 @@ const PlottingManagement: React.FC = () => {
    * 打开新增Modal
    */
   const handleAdd = () => {
-    setModalMode('create');
+    setModalMode("create");
     setCurrentRecord(null);
     form.resetFields();
     setModalVisible(true);
@@ -200,7 +183,7 @@ const PlottingManagement: React.FC = () => {
    * 打开编辑Modal
    */
   const handleEdit = (record: Plotting) => {
-    setModalMode('edit');
+    setModalMode("edit");
     setCurrentRecord(record);
     form.setFieldsValue({
       incidentId: record.incident_id,
@@ -221,18 +204,18 @@ const PlottingManagement: React.FC = () => {
       const values = await form.validateFields();
       setModalLoading(true);
 
-      if (modalMode === 'create') {
-        await http.post('/api/v1/plotting', values);
-        message.success('创建成功');
+      if (modalMode === "create") {
+        await http.post("/api/v1/plotting", values);
+        message.success("创建成功");
       } else {
         await http.put(`/api/v1/plotting/${currentRecord?.id}`, values);
-        message.success('更新成功');
+        message.success("更新成功");
       }
 
       setModalVisible(false);
       fetchPlottings();
     } catch (error) {
-      message.error(modalMode === 'create' ? '创建失败' : '更新失败');
+      message.error(modalMode === "create" ? "创建失败" : "更新失败");
     } finally {
       setModalLoading(false);
     }
@@ -244,10 +227,10 @@ const PlottingManagement: React.FC = () => {
   const handleDelete = async (record: Plotting) => {
     try {
       await http.delete(`/api/v1/plotting/${record.id}`);
-      message.success('删除成功');
+      message.success("删除成功");
       fetchPlottings();
     } catch (error) {
-      message.error('删除失败');
+      message.error("删除失败");
     }
   };
 
@@ -276,7 +259,7 @@ const PlottingManagement: React.FC = () => {
 
       {/* 新增/编辑Modal */}
       <Modal
-        title={modalMode === 'create' ? '创建标绘' : '编辑标绘'}
+        title={modalMode === "create" ? "创建标绘" : "编辑标绘"}
         open={modalVisible}
         onOk={handleModalSubmit}
         onCancel={() => setModalVisible(false)}
@@ -291,7 +274,7 @@ const PlottingManagement: React.FC = () => {
           <Form.Item
             label="标绘类型"
             name="type"
-            rules={[{ required: true, message: '请选择标绘类型' }]}
+            rules={[{ required: true, message: "请选择标绘类型" }]}
           >
             <Select options={PLOTTING_TYPES} placeholder="请选择标绘类型" />
           </Form.Item>
@@ -307,7 +290,7 @@ const PlottingManagement: React.FC = () => {
           <Form.Item
             label="几何数据（JSON）"
             name="geometry"
-            rules={[{ required: true, message: '请输入几何数据' }]}
+            rules={[{ required: true, message: "请输入几何数据" }]}
           >
             <Input.TextArea
               rows={6}

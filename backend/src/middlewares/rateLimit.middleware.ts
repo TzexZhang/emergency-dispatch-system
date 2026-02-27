@@ -39,16 +39,13 @@ export const rateLimiter = rateLimit({
   },
 
   // 跳过某些请求
-  skip: (req) => {
+  skip: (_req) => {
     // 跳过健康检查
-    if (req.path === '/health') {
-      return true;
-    }
-    return false;
+    return _req.path === '/health';
   },
 
   // 自定义处理器
-  handler: (req, res) => {
+  handler: (_req, res) => {
     res.status(429).json({
       code: 429,
       message: '请求过于频繁，请稍后再试',
@@ -83,7 +80,7 @@ export const apiKeyRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1小时
   max: 1000,
   keyGenerator: (req) => {
-    return req.headers['x-api-key'] as string || req.ip;
+    return req.headers['x-api-key'] as string || req.ip || 'unknown';
   },
   message: {
     code: 429,

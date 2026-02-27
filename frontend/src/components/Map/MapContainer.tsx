@@ -12,20 +12,27 @@
  * @author Emergency Dispatch Team
  */
 
-import { useEffect, useRef } from 'react';
-import { mapService } from '@services/map.service';
-import { config } from '@/config';
-import type { Resource } from '@/types';
-import 'ol/ol.css';
+import { useEffect, useRef } from "react";
+import { mapService } from "@services/map.service";
+import { config } from "@/config";
+import type { Resource } from "@/types";
+import "ol/ol.css";
 
 interface MapContainerProps {
   resources: Resource[];
+  useCluster?: boolean;
+  onResourceClick?: (resource: Resource) => void;
 }
 
-const MapContainer: React.FC<MapContainerProps> = ({ resources }) => {
+const MapContainer: React.FC<MapContainerProps> = ({
+  resources,
+  useCluster = false,
+  onResourceClick,
+}) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInitializedRef = useRef(false);
   const prevResourcesRef = useRef<Resource[]>([]);
+  const prevUseClusterRef = useRef(false);
 
   useEffect(() => {
     if (!mapContainerRef.current || mapInitializedRef.current) {
@@ -39,10 +46,12 @@ const MapContainer: React.FC<MapContainerProps> = ({ resources }) => {
         zoom: config.map.defaultZoom,
         minZoom: config.map.minZoom,
         maxZoom: config.map.maxZoom,
+        useCluster: useCluster,
       });
       mapInitializedRef.current = true;
+      prevUseClusterRef.current = useCluster;
     } catch (error) {
-      console.error('地图初始化失败:', error);
+      console.error("地图初始化失败:", error);
     }
 
     return () => {
@@ -51,6 +60,31 @@ const MapContainer: React.FC<MapContainerProps> = ({ resources }) => {
       mapInitializedRef.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!mapInitializedRef.current) return;
+
+    mapService.onResourceClick((feature) => {
+      const resourceId = feature.get("id");
+      const resource = resources.find((r) => r.id === resourceId);
+      if (resource && onResourceClick) {
+        onResourceClick(resource);
+      }
+    });
+  }, [resources, onResourceClick]);
+
+  useEffect(() => {
+    if (!mapInitializedRef.current) return;
+
+    if (useCluster !== prevUseClusterRef.current) {
+      if (useCluster) {
+        mapService.enableCluster();
+      } else {
+        mapService.disableCluster();
+      }
+      prevUseClusterRef.current = useCluster;
+    }
+  }, [useCluster]);
 
   useEffect(() => {
     if (!mapInitializedRef.current) return;
@@ -81,9 +115,9 @@ const MapContainer: React.FC<MapContainerProps> = ({ resources }) => {
       ref={mapContainerRef}
       className="map-container"
       style={{
-        width: '100%',
-        height: '100%',
-        position: 'absolute',
+        width: "100%",
+        height: "100%",
+        position: "absolute",
         top: 0,
         left: 0,
         right: 0,

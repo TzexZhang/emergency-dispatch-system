@@ -13,7 +13,7 @@
  */
 
 import { io, Socket } from 'socket.io-client';
-import { message as antdMessage } from 'antd';
+import { getMessage } from '@/utils/message';
 import { config } from '@/config';
 import type {
   ResourceUpdate,
@@ -93,7 +93,11 @@ class WebSocketService {
     // 连接成功
     this.socket.on('connect', () => {
       this.isConnected = true;
-      antdMessage.success('实时通信已连接');
+      try {
+        getMessage().success('实时通信已连接');
+      } catch (error) {
+        // Message instance not initialized yet
+      }
     });
 
     // 连接错误
@@ -102,15 +106,23 @@ class WebSocketService {
     });
 
     // 断开连接
-    this.socket.on('disconnect', (reason) => {
+    this.socket.on('disconnect', (_reason) => {
       this.isConnected = false;
-      antdMessage.warning('实时通信已断开');
+      try {
+        getMessage().warning('实时通信已断开');
+      } catch (error) {
+        // Message instance not initialized yet
+      }
     });
 
     // 重连成功
     this.socket.io.on('reconnect', () => {
       this.isConnected = true;
-      antdMessage.success('实时通信已重连');
+      try {
+        getMessage().success('实时通信已重连');
+      } catch (error) {
+        // Message instance not initialized yet
+      }
     });
 
     // 监听心跳ping
@@ -129,13 +141,21 @@ class WebSocketService {
     // 新事件
     this.socket.on('incident:new', (data: IncidentNew) => {
       this.triggerEvent('incident:new', data);
-      antdMessage.warning(`新事件: ${data.title}`);
+      try {
+        getMessage().warning(`新事件: ${data.title}`);
+      } catch (error) {
+        // Message instance not initialized yet
+      }
     });
 
     // 系统告警
     this.socket.on('alert:broadcast', (data: AlertBroadcast) => {
       this.triggerEvent('alert:broadcast', data);
-      antdMessage.error(`系统告警: ${data.title}`);
+      try {
+        getMessage().error(`系统告警: ${data.title}`);
+      } catch (error) {
+        // Message instance not initialized yet
+      }
     });
   }
 

@@ -24,7 +24,6 @@ import {
   Modal,
   message,
   type TableProps,
-  type FormProps,
 } from 'antd';
 import {
   PlusOutlined,
@@ -35,7 +34,7 @@ import {
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 
-export interface DataTableProps<T = any> extends Omit<TableProps<T>, 'columns'> {
+export interface DataTableProps<T = any> extends Omit<TableProps<T>, 'columns' | 'rowKey'> {
   // 表格列配置
   columns: ColumnsType<T>;
 
@@ -64,6 +63,9 @@ export interface DataTableProps<T = any> extends Omit<TableProps<T>, 'columns'> 
   // 行选择
   selectable?: boolean;
   rowSelection?: TableProps<T>['rowSelection'];
+
+  // 行的唯一标识字段名
+  rowKey?: string;
 
   // 自定义表格内容
   extra?: React.ReactNode;
@@ -100,6 +102,7 @@ const DataTable = <T extends Record<string, any>>({
   onRefresh,
   selectable = false,
   rowSelection,
+  rowKey = 'id',
   extra,
   ...tableProps
 }: DataTableProps<T>) => {
@@ -279,6 +282,7 @@ const DataTable = <T extends Record<string, any>>({
       {renderToolbar()}
       <Table<T>
         {...tableProps}
+        rowKey={rowKey}
         columns={finalColumns}
         dataSource={dataSource}
         loading={loading}

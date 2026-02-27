@@ -51,19 +51,21 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
     const authHeader = req.headers.authorization;
 
     if (!authHeader) {
-      return res.status(401).json({
+      res.status(401).json({
         code: 401,
         message: '未提供认证Token',
       });
+      return;
     }
 
     // 提取Bearer Token
     const parts = authHeader.split(' ');
     if (parts.length !== 2 || parts[0] !== 'Bearer') {
-      return res.status(401).json({
+      res.status(401).json({
         code: 401,
         message: 'Token格式错误',
       });
+      return;
     }
 
     const token = parts[1];
@@ -84,19 +86,21 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
     // Token过期
     if (err.name === 'TokenExpiredError') {
       logger.warn(`Token已过期: ${err.expiredAt}`);
-      return res.status(401).json({
+      res.status(401).json({
         code: 401,
         message: 'Token已过期',
         expiredAt: err.expiredAt,
       });
+      return;
     }
 
     // Token无效
     logger.error(`Token验证失败: ${err.message}`);
-    return res.status(401).json({
+    res.status(401).json({
       code: 401,
       message: '无效的Token',
     });
+    return;
   }
 }
 
@@ -118,21 +122,23 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
 export function checkRole(allowedRoles: string[]) {
   return (req: Request, res: Response, next: NextFunction): void => {
     if (!req.user) {
-      return res.status(401).json({
+      res.status(401).json({
         code: 401,
         message: '未认证',
       });
+      return;
     }
 
     if (!allowedRoles.includes(req.user.role)) {
       logger.warn(
         `权限拒绝: 用户 ${req.user.userName} (${req.user.role}) 尝试访问需要 ${allowedRoles.join(', ')} 角色的资源`
       );
-      return res.status(403).json({
+      res.status(403).json({
         code: 403,
         message: '权限不足',
         requiredRoles: allowedRoles,
       });
+      return;
     }
 
     next();
@@ -156,7 +162,7 @@ export function checkRole(allowedRoles: string[]) {
  * });
  * ```
  */
-export function optionalAuth(req: Request, res: Response, next: NextFunction): void {
+export function optionalAuth(req: Request, _res: Response, next: NextFunction): void {
   try {
     const authHeader = req.headers.authorization;
 

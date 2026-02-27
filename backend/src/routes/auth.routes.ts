@@ -18,7 +18,7 @@ import { strictRateLimiter } from '@middlewares/rateLimit.middleware';
 import { authMiddleware } from '@middlewares/auth.middleware';
 import { uploadAvatar } from '@middlewares/upload.middleware';
 
-const router = Router();
+const router: any = Router();
 const authController = new AuthController();
 
 /**
@@ -82,7 +82,7 @@ router.post('/refresh', authController.refreshToken);
  * 获取当前用户信息
  * 需要认证
  */
-router.get('/info', authController.getCurrentUser);
+router.get('/info', authMiddleware, authController.getCurrentUser);
 
 /**
  * POST /api/v1/auth/upload-avatar

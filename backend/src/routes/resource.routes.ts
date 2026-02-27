@@ -16,7 +16,7 @@
 import { Router } from 'express';
 import { ResourceController } from '@controllers/resource.controller';
 
-const router = Router();
+const router: any = Router();
 const resourceController = new ResourceController();
 
 /**
@@ -48,6 +48,12 @@ router.get('/nearby', resourceController.getNearby);
  * 资源统计
  */
 router.get('/stats', resourceController.getStats);
+
+/**
+ * GET /api/v1/resources/types
+ * 获取资源类型列表
+ */
+router.get('/types', resourceController.getTypes);
 
 /**
  * POST /api/v1/resources
