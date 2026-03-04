@@ -25,6 +25,30 @@ interface RequestConfig extends AxiosRequestConfig {
 }
 
 /**
+ * 将snake_case转换为camelCase
+ */
+function toCamelCase(obj: any): any {
+  if (obj === null || obj === undefined) return obj;
+  
+  if (Array.isArray(obj)) {
+    return obj.map(item => toCamelCase(item));
+  }
+  
+  if (typeof obj === 'object') {
+    const result: any = {};
+    for (const key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        const camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+        result[camelKey] = toCamelCase(obj[key]);
+      }
+    }
+    return result;
+  }
+  
+  return obj;
+}
+
+/**
  * 创建Axios实例
  */
 const http: AxiosInstance = axios.create({
@@ -73,7 +97,7 @@ http.interceptors.response.use(
       }
     }
 
-    return response.data;
+    return toCamelCase(response.data);
   },
   (error) => {
     // 处理HTTP错误

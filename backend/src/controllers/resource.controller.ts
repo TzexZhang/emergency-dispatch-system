@@ -16,6 +16,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { query, insert, update } from '@utils/db';
 import { NotFoundError, ValidationError } from '@middlewares/error.middleware';
 import { logger } from '@utils/logger';
+import { getWsGateway } from '@websocket/export';
 
 /**
  * 资源控制器类
@@ -74,24 +75,26 @@ export class ResourceController {
       const resources = await query<any[]>(
         `SELECT
           r.id,
-          r.resource_name,
-          r.resource_code,
-          r.resource_status,
+          r.resource_type_id AS resourceTypeId,
+          r.resource_name AS resourceName,
+          r.resource_code AS resourceCode,
+          r.resource_status AS resourceStatus,
           r.longitude,
           r.latitude,
-          r.altitude,
           r.speed,
           r.direction,
           r.properties,
-          r.department_id,
-          rt.type_code,
-          rt.type_name,
-          rt.icon_url,
+          r.department_id AS departmentId,
+          rt.type_code AS typeCode,
+          rt.type_name AS typeName,
+          rt.icon_url AS iconUrl,
           rt.color,
+          d.name AS departmentName,
           r.created_at,
-          r.updated_at
+          r.updated_at AS updatedAt
          FROM t_resource r
          LEFT JOIN t_resource_type rt ON r.resource_type_id = rt.id
+         LEFT JOIN t_department d ON r.department_id = d.id
          ${whereClause}
          ORDER BY r.created_at DESC
          LIMIT ${safeLimit} OFFSET ${safeOffset}`,
@@ -151,6 +154,35 @@ export class ResourceController {
   };
 
   /**
+   * 生成下一个资源编号
+   * 格式: RES-YYYYMMDD-XXXXX (如 RES-20260303-00001)
+   */
+  private generateNextResourceCode = async (): Promise<string> => {
+    const today = new Date();
+    const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
+    const prefix = `RES-${dateStr}-`;
+
+    // 查询当天最大编号
+    const result = await query<any[]>(
+      `SELECT resource_code FROM t_resource
+       WHERE resource_code LIKE ?
+       ORDER BY resource_code DESC
+       LIMIT 1`,
+      [`${prefix}%`]
+    );
+
+    if (result.length === 0) {
+      return `${prefix}00001`;
+    }
+
+    const lastCode = result[0].resource_code;
+    const lastNumber = parseInt(lastCode.slice(-5), 10);
+    const nextNumber = lastNumber + 1;
+
+    return `${prefix}${nextNumber.toString().padStart(5, '0')}`;
+  };
+
+  /**
    * 创建资源
    */
   public create = async (req: Request, res: Response): Promise<void> => {
@@ -158,7 +190,7 @@ export class ResourceController {
       const {
         resourceTypeId,
         resourceName,
-        resourceCode,
+        resourceCode: inputResourceCode,
         resourceStatus = 'online',
         longitude,
         latitude,
@@ -175,6 +207,9 @@ export class ResourceController {
       }
 
       const id = uuidv4();
+
+      // 自动生成资源编号（如果未提供）
+      const resourceCode = inputResourceCode || await this.generateNextResourceCode();
 
       await insert('t_resource', {
         id,
@@ -193,9 +228,35 @@ export class ResourceController {
 
       // 获取创建的资源详情
       const resource = await query<any[]>(
-        'SELECT * FROM t_resource WHERE id = ?',
+        `SELECT
+          r.*,
+          rt.type_code,
+          rt.color
+         FROM t_resource r
+         LEFT JOIN t_resource_type rt ON r.resource_type_id = rt.id
+         WHERE r.id = ?`,
         [id]
       );
+
+      // 广播新资源创建事件
+      if (resource.length > 0) {
+        try {
+          const wsGateway = getWsGateway();
+          wsGateway.broadcastResourceUpdate({
+            id: resource[0].id,
+            status: resource[0].resource_status,
+            lng: resource[0].longitude,
+            lat: resource[0].latitude,
+            properties: {
+              resourceName: resource[0].resource_name,
+              typeCode: resource[0].type_code,
+              color: resource[0].color,
+            },
+          });
+        } catch (wsError) {
+          logger.warn('WebSocket推送资源创建失败:', wsError);
+        }
+      }
 
       logger.info(`创建资源成功: ${resourceName}`);
 
@@ -216,43 +277,84 @@ export class ResourceController {
   public update = async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
-      const updateData: Record<string, any> = {};
+      const dbData: Record<string, any> = {};
 
-      // 允许更新的字段
-      const allowedFields = [
-        'resource_name',
-        'resource_code',
-        'resource_status',
-        'longitude',
-        'latitude',
-        'altitude',
-        'speed',
-        'direction',
-        'properties',
-        'department_id',
-      ];
+      // 前端字段名(camelCase) -> 数据库字段名(snake_case) 映射
+      const fieldMapping: Record<string, string> = {
+        resourceTypeId: 'resource_type_id',
+        resourceName: 'resource_name',
+        resourceCode: 'resource_code',
+        resourceStatus: 'resource_status',
+        longitude: 'longitude',
+        latitude: 'latitude',
+        altitude: 'altitude',
+        speed: 'speed',
+        direction: 'direction',
+        properties: 'properties',
+        departmentId: 'department_id',
+      };
 
-      allowedFields.forEach((field) => {
-        if (req.body[field] !== undefined) {
-          updateData[field] = req.body[field];
+      // 遍历映射表，从请求体中提取数据
+      Object.entries(fieldMapping).forEach(([camelField, snakeField]) => {
+        if (req.body[camelField] !== undefined) {
+          dbData[snakeField] = req.body[camelField];
         }
       });
 
       // 特殊处理properties字段
-      if (updateData.properties) {
-        updateData.properties = JSON.stringify(updateData.properties);
+      if (dbData.properties && typeof dbData.properties === 'object') {
+        dbData.properties = JSON.stringify(dbData.properties);
       }
 
-      // 转换字段名
-      const dbData: Record<string, any> = {};
-      Object.keys(updateData).forEach((key) => {
-        dbData[key.replace(/([A-Z])/g, '_$1').toLowerCase()] = updateData[key];
-      });
+      // 检查是否有数据需要更新
+      if (Object.keys(dbData).length === 0) {
+        res.json({
+          code: 200,
+          message: '没有需要更新的数据',
+        });
+        return;
+      }
 
       const affectedRows = await update('t_resource', dbData, { id });
 
       if (affectedRows === 0) {
         throw new NotFoundError('资源不存在');
+      }
+
+      // 获取更新后的资源数据
+      const updatedResource = await query<any[]>(
+        `SELECT
+          r.id,
+          r.resource_name,
+          r.resource_status,
+          r.longitude,
+          r.latitude,
+          rt.type_code,
+          rt.color
+         FROM t_resource r
+         LEFT JOIN t_resource_type rt ON r.resource_type_id = rt.id
+         WHERE r.id = ?`,
+        [id]
+      );
+
+      // 广播资源更新事件
+      if (updatedResource.length > 0) {
+        try {
+          const wsGateway = getWsGateway();
+          wsGateway.broadcastResourceUpdate({
+            id: updatedResource[0].id,
+            status: updatedResource[0].resource_status,
+            lng: updatedResource[0].longitude,
+            lat: updatedResource[0].latitude,
+            properties: {
+              resourceName: updatedResource[0].resource_name,
+              typeCode: updatedResource[0].type_code,
+              color: updatedResource[0].color,
+            },
+          });
+        } catch (wsError) {
+          logger.warn('WebSocket推送资源更新失败:', wsError);
+        }
       }
 
       logger.info(`更新资源成功: ${id}`);

@@ -43,6 +43,7 @@ export interface Resource {
   properties?: Record<string, any>;
   departmentId?: string;
   departmentName?: string;
+  typeCode?: string;
   typeName?: string;
   iconUrl?: string;
   color?: string;
@@ -261,6 +262,22 @@ export interface AlertBroadcast {
   title: string;
   content: string;
   timestamp: string;
+}
+
+// ==================
+// 标绘类型
+// ==================
+export type DrawingType = 'point' | 'line' | 'polygon';
+
+export interface PlottingData {
+  id: string;
+  type: DrawingType;
+  name: string;
+  description?: string;
+  color: string;
+  coordinates: number[] | number[][] | number[][][];
+  createdBy: string;
+  createdAt: string;
 }
 
 // ==================

@@ -100,8 +100,8 @@ const SpatialAnalysis: React.FC<SpatialAnalysisProps> = () => {
       setLoading(true);
 
       const result = await spatialService.buffer({
-        lng: values.lng,
-        lat: values.lat,
+        lng: values.lng ?? 0,
+        lat: values.lat ?? 0,
         radius: values.radius || 1000,
         rings: values.rings || 3,
         unit: values.unit || "meters",
@@ -258,6 +258,8 @@ const SpatialAnalysis: React.FC<SpatialAnalysisProps> = () => {
                     title: "覆盖面积（km²）",
                     dataIndex: ["properties", "area"],
                     key: "area",
+                    render: (area: number) =>
+                      ((area || 0) / 1000000).toFixed(2),
                   },
                 ]}
                 pagination={false}

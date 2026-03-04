@@ -10,10 +10,9 @@
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
     "test": "jest --coverage",
-    "db:check": "tsx scripts/check-db.ts",
-    "db:migrate": "tsx scripts/migrate.ts",
-    "db:seed": "tsx scripts/seed.ts",
-    "db:reset": "tsx scripts/reset.ts"
+    "db:init": "tsx scripts/init.ts",
+    "db:seed": "tsx scripts/check-and-seed.ts",
+    "db:init:sql": "mysql -h %DB_HOST% -u %DB_USER% -p%DB_PASSWORD% %DB_NAME% < scripts/database.sql"
   },
   "keywords": [
     "emergency",

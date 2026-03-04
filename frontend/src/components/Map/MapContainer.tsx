@@ -12,70 +12,129 @@
  * @author Emergency Dispatch Team
  */
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { mapService } from "@services/map.service";
 import { config } from "@/config";
 import type { Resource } from "@/types";
 import "ol/ol.css";
 
 interface MapContainerProps {
-  resources: Resource[];
+  resources?: Resource[];
   useCluster?: boolean;
+  useWebGL?: boolean;
   onResourceClick?: (resource: Resource) => void;
 }
 
 const MapContainer: React.FC<MapContainerProps> = ({
-  resources,
-  useCluster = false,
+  resources = [],
+  useCluster = true,
+  useWebGL = false,
   onResourceClick,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapInitializedRef = useRef(false);
-  const prevResourcesRef = useRef<Resource[]>([]);
-  const prevUseClusterRef = useRef(false);
+  const prevUseClusterRef = useRef(useCluster);
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const initAttemptedRef = useRef(false);
 
+  // 地图初始化 - 只执行一次
   useEffect(() => {
-    if (!mapContainerRef.current || mapInitializedRef.current) {
-      return;
-    }
+    const container = mapContainerRef.current;
+    if (!container || initAttemptedRef.current) return;
 
-    try {
-      mapService.initMap({
-        target: mapContainerRef.current,
-        center: config.map.defaultCenter,
-        zoom: config.map.defaultZoom,
-        minZoom: config.map.minZoom,
-        maxZoom: config.map.maxZoom,
-        useCluster: useCluster,
-      });
-      mapInitializedRef.current = true;
+    initAttemptedRef.current = true;
+    let retryCount = 0;
+    const maxRetries = 50;
+
+    const tryInit = () => {
+      const currentContainer = mapContainerRef.current;
+      if (!currentContainer) {
+        if (retryCount < maxRetries) {
+          retryCount++;
+          setTimeout(tryInit, 100);
+        }
+        return;
+      }
+
+      const rect = currentContainer.getBoundingClientRect();
+
+      if (rect.width > 0 && rect.height > 0) {
+        doInit();
+      } else if (retryCount < maxRetries) {
+        retryCount++;
+        setTimeout(tryInit, 100);
+      } else {
+        // 最后一次尝试，强制初始化
+        console.warn("Map container size is 0, force initializing...");
+        doInit();
+      }
+    };
+
+    const doInit = () => {
+      mapService.initMap(
+        {
+          target: mapContainerRef.current!,
+          center: config.map.defaultCenter,
+          zoom: config.map.defaultZoom,
+          minZoom: config.map.minZoom,
+          maxZoom: config.map.maxZoom,
+        },
+        useCluster,
+        useWebGL,
+      );
       prevUseClusterRef.current = useCluster;
-    } catch (error) {
-      console.error("地图初始化失败:", error);
-    }
+
+      // 延迟触发尺寸更新，确保瓦片加载
+      setTimeout(() => {
+        mapService.updateSize();
+        mapService.getMap()?.render();
+      }, 200);
+
+      // 监听尺寸变化
+      resizeObserverRef.current = new ResizeObserver(() => {
+        mapService.updateSize();
+      });
+      if (mapContainerRef.current) {
+        resizeObserverRef.current.observe(mapContainerRef.current);
+      }
+    };
+
+    // 延迟初始化，确保 DOM 完全渲染
+    requestAnimationFrame(() => {
+      setTimeout(tryInit, 50);
+    });
 
     return () => {
+      if (resizeObserverRef.current) {
+        resizeObserverRef.current.disconnect();
+        resizeObserverRef.current = null;
+      }
       mapService.clearResources();
       mapService.destroy();
-      mapInitializedRef.current = false;
+      initAttemptedRef.current = false;
     };
   }, []);
 
+  // 处理资源点击
   useEffect(() => {
-    if (!mapInitializedRef.current) return;
+    if (!onResourceClick) return;
 
     mapService.onResourceClick((feature) => {
-      const resourceId = feature.get("id");
+      let resourceId = feature.get("id");
+      if (!resourceId) {
+        const data = feature.get("data");
+        if (data && data.id) {
+          resourceId = data.id;
+        }
+      }
       const resource = resources.find((r) => r.id === resourceId);
-      if (resource && onResourceClick) {
+      if (resource) {
         onResourceClick(resource);
       }
     });
   }, [resources, onResourceClick]);
 
+  // 处理聚合模式切换
   useEffect(() => {
-    if (!mapInitializedRef.current) return;
-
     if (useCluster !== prevUseClusterRef.current) {
       if (useCluster) {
         mapService.enableCluster();
@@ -86,27 +145,12 @@ const MapContainer: React.FC<MapContainerProps> = ({
     }
   }, [useCluster]);
 
+  // 更新资源点位 - 篡化后的简洁逻辑
   useEffect(() => {
-    if (!mapInitializedRef.current) return;
-
-    const prevResources = prevResourcesRef.current;
-    const prevMap = new Map(prevResources.map((r) => [r.id, r]));
-
-    const hasChanged =
-      resources.length !== prevResources.length ||
-      resources.some((r) => {
-        const prev = prevMap.get(r.id);
-        return (
-          !prev ||
-          prev.longitude !== r.longitude ||
-          prev.latitude !== r.latitude ||
-          prev.resourceStatus !== r.resourceStatus
-        );
-      });
-
-    if (hasChanged) {
+    if (resources.length > 0) {
       mapService.updateResources(resources);
-      prevResourcesRef.current = resources;
+    } else {
+      mapService.clearResources();
     }
   }, [resources]);
 
@@ -122,6 +166,7 @@ const MapContainer: React.FC<MapContainerProps> = ({
         left: 0,
         right: 0,
         bottom: 0,
+        zIndex: 1,
       }}
     />
   );

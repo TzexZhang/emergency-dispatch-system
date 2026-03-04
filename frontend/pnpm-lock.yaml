@@ -78,6 +78,9 @@ importers:
         specifier: ^4.4.7
         version: 4.5.7(@types/react@18.3.28)(react@18.3.1)
     devDependencies:
+      '@types/lodash':
+        specifier: ^4.17.24
+        version: 4.17.24
       '@types/react':
         specifier: ^18.2.43
         version: 18.3.28
@@ -1035,6 +1038,9 @@ packages:
 
   '@types/kdbush@3.0.5':
     resolution: {integrity: sha512-tdJz7jaWFu4nR+8b2B+CdPZ6811ighYylWsu2hpsivapzW058yP0KdfZuNY89IiRe5jbKvBGXN3LQdN2KPXVdQ==}
+
+  '@types/lodash@4.17.24':
+    resolution: {integrity: sha512-gIW7lQLZbue7lRSWEFql49QJJWThrTFFeIMJdp3eH4tKoxm1OvEPg02rm4wCCSHS0cL3/Fizimb35b7k8atwsQ==}
 
   '@types/prop-types@15.7.15':
     resolution: {integrity: sha512-F6bEyamV9jKGAFBEmlQnesRPGOQqS2+Uwi0Em15xenOxHaf2hv6L8YCVn3rPdPJOiJfPiCnLIRyvwVaqMY3MIw==}
@@ -4363,6 +4369,8 @@ snapshots:
   '@types/kdbush@1.0.7': {}
 
   '@types/kdbush@3.0.5': {}
+
+  '@types/lodash@4.17.24': {}
 
   '@types/prop-types@15.7.15': {}
 

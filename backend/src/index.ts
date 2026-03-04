@@ -46,6 +46,7 @@ import playbackRoutes from '@routes/playback.routes';
 
 // 导入WebSocket服务
 import { WebSocketGateway } from '@websocket/gateway';
+import { setWsGateway } from '@websocket/export';
 
 // 导入日志工具
 import { logger } from '@utils/logger';
@@ -76,6 +77,9 @@ class App {
 
     // 初始化WebSocket网关
     this.wsGateway = new WebSocketGateway(this.io);
+
+    // 导出WebSocket网关实例供控制器使用
+    setWsGateway(this.wsGateway);
 
     // 初始化中间件
     this.initializeMiddlewares();
@@ -177,23 +181,35 @@ class App {
   public listen(): void {
     const PORT = config.app.port;
 
+    // 先打印启动信息
+    console.log('');
+    console.log('正在启动服务器...');
+
     this.httpServer.listen(PORT, () => {
-      logger.info(`
-╔═══════════════════════════════════════════════════════════╗
-║                                                           ║
-║   城市智慧应急协同调度平台 - 后端服务                      ║
-║   Emergency Dispatch System - Backend Service            ║
-║                                                           ║
-║   环境: ${config.app.env.padEnd(46)}║
-║   端口: ${String(PORT).padEnd(46)}║
-║   时间: ${new Date().toLocaleString('zh-CN').padEnd(42)}║
-║                                                           ║
-║   HTTP服务: http://localhost:${PORT}                      ║
-║   WebSocket: ws://localhost:${PORT}                       ║
-║   API文档: http://localhost:${PORT}/api/v1/docs           ║
-║                                                           ║
-╚═══════════════════════════════════════════════════════════╝
-      `);
+      const startMessage = `
+║   城市智慧应急协同调度平台 - 后端服务
+║   环境: ${config.app.env}
+║   端口: ${PORT}
+║                                                           
+║   HTTP服务: http://localhost:${PORT}
+║   WebSocket: ws://localhost:${PORT}
+║   API文档: http://localhost:${PORT}/api/v1/docs
+      `;
+
+      console.log(startMessage);
+      logger.info('服务器启动成功');
+    });
+
+    // 监听错误事件
+    this.httpServer.on('error', (error: any) => {
+      if (error.code === 'EADDRINUSE') {
+        console.error(`端口 ${PORT} 已被占用`);
+        logger.error(`端口 ${PORT} 已被占用`);
+      } else {
+        console.error('服务器错误:', error);
+        logger.error('服务器错误:', error);
+      }
+      process.exit(1);
     });
 
     // 优雅关闭

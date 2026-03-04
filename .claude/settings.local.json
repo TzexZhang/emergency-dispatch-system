@@ -27,7 +27,20 @@
       "Bash(pnpm db:migrate)",
       "Bash(tsx:*)",
       "Bash(pnpm exec:*)",
-      "Bash(ping:*)"
+      "Bash(ping:*)",
+      "Bash(npm run:*)",
+      "Bash(npx eslint:*)",
+      "mcp__zai-mcp-server__analyze_image",
+      "Bash(cmd.exe:*)",
+      "Bash(npx install:*)",
+      "Bash(npm install:*)",
+      "Bash(git checkout:*)",
+      "Bash(pnpm add:*)",
+      "Bash(redis-cli ping:*)",
+      "Bash(pnpm run:*)",
+      "Bash(npx ts-node:*)",
+      "Bash(grep:*)",
+      "Bash(sed:*)"
     ]
   }
 }

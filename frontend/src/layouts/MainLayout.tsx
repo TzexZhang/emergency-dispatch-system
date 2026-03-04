@@ -22,6 +22,7 @@ import {
   AlertOutlined,
   CarOutlined,
   RadarChartOutlined,
+  GlobalOutlined,
   HistoryOutlined,
   UserOutlined,
   LogoutOutlined,
@@ -116,6 +117,17 @@ const MainLayout: React.FC = () => {
         {
           key: "/playback/management",
           label: "轨迹查询",
+        },
+      ],
+    },
+    {
+      key: "/spatial",
+      icon: <GlobalOutlined />,
+      label: "空间分析",
+      children: [
+        {
+          key: "/spatial/isochrone",
+          label: "等时圈分析",
         },
       ],
     },

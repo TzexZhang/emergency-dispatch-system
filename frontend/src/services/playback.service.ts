@@ -115,6 +115,17 @@ export class PlaybackService {
     });
     return res as unknown as Blob;
   }
+
+  /**
+   * 获取时间动态热力图数据
+   */
+  async getTimeHeatmap(params: HeatmapParams): Promise<Array<{
+    timestamp: string;
+    points: { lng: number; lat: number; weight: number }[];
+  }>> {
+    const res = await get('/api/v1/playback/time-heatmap', { params });
+    return res.data;
+  }
 }
 
 export const playbackService = new PlaybackService();

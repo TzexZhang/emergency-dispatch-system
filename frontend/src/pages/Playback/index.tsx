@@ -26,6 +26,8 @@ import {
   Row,
   Col,
   App,
+  Tag,
+  Radio,
 } from "antd";
 import dayjs from "dayjs";
 import mapService from "@/services/map.service";
@@ -47,6 +49,13 @@ interface TrajectoryStats {
   endTime: string;
 }
 
+interface MultiTrajectoryData {
+  resourceId: string;
+  resourceName: string;
+  color: string;
+  points: Array<{ lng: number; lat: number; timestamp?: string }>;
+}
+
 const Playback: React.FC<PlaybackProps> = () => {
   const { message: appMessage } = App.useApp();
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -60,6 +69,21 @@ const Playback: React.FC<PlaybackProps> = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackProgress, setPlaybackProgress] = useState(0);
   const [playbackSpeed, setPlaybackSpeed] = useState(500);
+  const [playbackMode, setPlaybackMode] = useState<"single" | "multi">(
+    "single",
+  );
+  const [multiTrajectoryData, setMultiTrajectoryData] = useState<
+    MultiTrajectoryData[]
+  >([]);
+  const [selectedResourceIds, setSelectedResourceIds] = useState<string[]>([]);
+  const [currentTimestamp, setCurrentTimestamp] = useState<string>("");
+  const [timeHeatmapData, setTimeHeatmapData] = useState<
+    Array<{
+      timestamp: string;
+      points: { lng: number; lat: number; weight: number }[];
+    }>
+  >([]);
+  const [isHeatmapPlaying, setIsHeatmapPlaying] = useState(false);
 
   const [resources, setResources] = useState<any[]>([]);
 
@@ -80,6 +104,10 @@ const Playback: React.FC<PlaybackProps> = () => {
     return () => {
       mapService.clearTrajectory();
       mapService.stopTrajectoryPlayback();
+      mapService.stopMultiTrajectoryPlayback();
+      mapService.clearMultiTrajectoryLayers();
+      mapService.clearHeatmap();
+      mapService.stopTimeHeatmap();
     };
   }, []);
 
@@ -232,6 +260,7 @@ const Playback: React.FC<PlaybackProps> = () => {
 
   const handlePause = useCallback(() => {
     mapService.stopTrajectoryPlayback();
+    mapService.stopMultiTrajectoryPlayback();
     setIsPlaying(false);
   }, []);
 
@@ -271,16 +300,178 @@ const Playback: React.FC<PlaybackProps> = () => {
     }
   }, [form, appMessage]);
 
+  const handleMultiTrajectoryQuery = useCallback(async () => {
+    try {
+      if (selectedResourceIds.length === 0) {
+        appMessage.warning("请至少选择一个资源");
+        return;
+      }
+
+      const values = await form.validateFields();
+      setLoading(true);
+
+      const baseParams: any = {
+        page: 1,
+        pageSize: 10000,
+      };
+
+      if (values.timeRange) {
+        baseParams.startTime = values.timeRange[0].format(
+          "YYYY-MM-DD HH:mm:ss",
+        );
+        baseParams.endTime = values.timeRange[1].format("YYYY-MM-DD HH:mm:ss");
+      }
+
+      const colors = [
+        "#ff4d4f",
+        "#1890ff",
+        "#52c41a",
+        "#faad14",
+        "#722ed1",
+        "#eb2f96",
+      ];
+      const trajectoryPromises = selectedResourceIds.map(
+        async (resourceId, index) => {
+          const result = await playbackService.queryTrajectory({
+            ...baseParams,
+            resourceId,
+          });
+
+          const resource = resources.find((r) => r.id === resourceId);
+          return {
+            resourceId,
+            resourceName: resource?.resourceName || resourceId,
+            color: colors[index % colors.length],
+            points: result.list.map((p: any) => ({
+              lng: p.longitude,
+              lat: p.latitude,
+              timestamp: p.recordedAt,
+            })),
+          };
+        },
+      );
+
+      const trajectories = await Promise.all(trajectoryPromises);
+      setMultiTrajectoryData(trajectories);
+
+      mapService.initMultiTrajectoryLayers(
+        trajectories.map((t) => ({
+          resourceId: t.resourceId,
+          resourceName: t.resourceName,
+          color: t.color,
+        })),
+      );
+
+      if (trajectories.length > 0 && trajectories[0].points.length > 0) {
+        mapService.flyTo(
+          trajectories[0].points[0].lng,
+          trajectories[0].points[0].lat,
+          13,
+        );
+      }
+
+      appMessage.success(`查询到 ${trajectories.length} 个资源的轨迹数据`);
+    } catch (error) {
+      console.error("多车辆轨迹查询失败:", error);
+      appMessage.error("多车辆轨迹查询失败");
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedResourceIds, form, resources, appMessage]);
+
+  const handleMultiPlay = useCallback(() => {
+    if (multiTrajectoryData.length === 0) {
+      appMessage.warning("请先查询多车辆轨迹数据");
+      return;
+    }
+
+    setIsPlaying(true);
+    setPlaybackProgress(0);
+
+    mapService.playMultiTrajectory(
+      multiTrajectoryData,
+      playbackSpeed,
+      (timestamp, progress) => {
+        setCurrentTimestamp(timestamp);
+        setPlaybackProgress(progress);
+      },
+      () => {
+        setIsPlaying(false);
+        appMessage.success("多车辆回放完成");
+      },
+    );
+  }, [multiTrajectoryData, playbackSpeed, appMessage]);
+
   const handleClear = useCallback(() => {
     mapService.clearTrajectory();
     mapService.stopTrajectoryPlayback();
+    mapService.clearMultiTrajectoryLayers();
+    mapService.clearHeatmap();
+    mapService.stopTimeHeatmap();
     setTrajectoryData(null);
     setHeatmapData(null);
     setStats(null);
+    setMultiTrajectoryData([]);
+    setSelectedResourceIds([]);
+    setCurrentTimestamp("");
+    setTimeHeatmapData([]);
     setPlaybackProgress(0);
     setIsPlaying(false);
+    setIsHeatmapPlaying(false);
     appMessage.info("已清除所有数据");
   }, [appMessage]);
+
+  const handleTimeHeatmapQuery = useCallback(async () => {
+    try {
+      const values = await form.validateFields();
+      setLoading(true);
+
+      const params: any = {
+        resourceId: values.resourceId,
+        gridSize: 50,
+      };
+
+      if (values.timeRange) {
+        params.startTime = values.timeRange[0].format("YYYY-MM-DD HH:mm:ss");
+        params.endTime = values.timeRange[1].format("YYYY-MM-DD HH:mm:ss");
+      }
+
+      const result = await playbackService.getTimeHeatmap(params);
+      setTimeHeatmapData(result);
+      appMessage.success(`查询到 ${result.length} 个时间片的热力图数据`);
+    } catch (error) {
+      console.error("时间动态热力图查询失败:", error);
+      appMessage.error("时间动态热力图查询失败");
+    } finally {
+      setLoading(false);
+    }
+  }, [form, appMessage]);
+
+  const handleTimeHeatmapPlay = useCallback(() => {
+    if (timeHeatmapData.length === 0) {
+      appMessage.warning("请先查询时间动态热力图数据");
+      return;
+    }
+
+    setIsHeatmapPlaying(true);
+    mapService.playTimeHeatmap(
+      timeHeatmapData,
+      playbackSpeed,
+      (timestamp, progress) => {
+        setCurrentTimestamp(timestamp);
+        setPlaybackProgress(progress);
+      },
+      () => {
+        setIsHeatmapPlaying(false);
+        appMessage.success("时间动态热力图回放完成");
+      },
+    );
+  }, [timeHeatmapData, playbackSpeed, appMessage]);
+
+  const handleTimeHeatmapPause = useCallback(() => {
+    mapService.stopTimeHeatmap();
+    setIsHeatmapPlaying(false);
+  }, []);
 
   const trajectoryColumns = [
     { title: "ID", dataIndex: "id", key: "id", width: 200 },
@@ -300,12 +491,30 @@ const Playback: React.FC<PlaybackProps> = () => {
         <div style={{ padding: "16px" }}>
           <Space style={{ marginBottom: "16px" }}>
             <Button onClick={handleClear}>清除数据</Button>
+            <Radio.Group
+              value={playbackMode}
+              onChange={(e) => {
+                setPlaybackMode(e.target.value);
+                handleClear();
+              }}
+            >
+              <Radio.Button value="single">单车辆回放</Radio.Button>
+              <Radio.Button value="multi">多车辆同步</Radio.Button>
+            </Radio.Group>
+          </Space>
+
+          <Space style={{ marginBottom: "16px" }}>
             <Button
               type="primary"
-              onClick={handlePlay}
-              disabled={isPlaying || !trajectoryData}
+              onClick={playbackMode === "single" ? handlePlay : handleMultiPlay}
+              disabled={
+                isPlaying ||
+                (playbackMode === "single"
+                  ? !trajectoryData
+                  : multiTrajectoryData.length === 0)
+              }
             >
-              播放
+              {playbackMode === "single" ? "播放" : "同步播放"}
             </Button>
             <Button onClick={handlePause} disabled={!isPlaying}>
               暂停
@@ -318,53 +527,134 @@ const Playback: React.FC<PlaybackProps> = () => {
               value={1000 - playbackSpeed}
               onChange={handleSpeedChange}
             />
-            <Button onClick={handleExport} disabled={!trajectoryData}>
-              导出
-            </Button>
+            {playbackMode === "single" && (
+              <>
+                <Button onClick={handleExport} disabled={!trajectoryData}>
+                  导出
+                </Button>
+                {timeHeatmapData.length > 0 && (
+                  <>
+                    <Button
+                      type={isHeatmapPlaying ? "default" : "primary"}
+                      onClick={handleTimeHeatmapPlay}
+                      disabled={isHeatmapPlaying}
+                    >
+                      播放时间热力图
+                    </Button>
+                    <Button
+                      onClick={handleTimeHeatmapPause}
+                      disabled={!isHeatmapPlaying}
+                    >
+                      暂停热力图
+                    </Button>
+                  </>
+                )}
+              </>
+            )}
           </Space>
 
           {isPlaying && (
             <div style={{ marginBottom: "16px" }}>
               <span>回放进度：{playbackProgress.toFixed(1)}%</span>
+              {playbackMode === "multi" && currentTimestamp && (
+                <span style={{ marginLeft: "16px" }}>
+                  当前时间：{dayjs(currentTimestamp).format("HH:mm:ss")}
+                </span>
+              )}
             </div>
           )}
 
           <Card title="查询条件" style={{ marginBottom: "16px" }}>
             <Form form={form} layout="inline">
-              <Form.Item
-                name="resourceId"
-                label="资源"
-                rules={[{ required: true, message: "请选择资源" }]}
-              >
-                <Select
-                  style={{ width: 200 }}
-                  placeholder="请选择资源"
-                  showSearch
-                  optionFilterProp="children"
-                  options={resources.map((r) => ({
-                    value: r.id,
-                    label: r.resourceName,
-                  }))}
-                />
-              </Form.Item>
+              {playbackMode === "single" ? (
+                <Form.Item
+                  name="resourceId"
+                  label="资源"
+                  rules={[{ required: true, message: "请选择资源" }]}
+                >
+                  <Select
+                    style={{ width: 200 }}
+                    placeholder="请选择资源"
+                    showSearch
+                    optionFilterProp="children"
+                    options={resources.map((r) => ({
+                      value: r.id,
+                      label: r.resourceName,
+                    }))}
+                  />
+                </Form.Item>
+              ) : (
+                <Form.Item label="选择资源（多选）">
+                  <Select
+                    mode="multiple"
+                    style={{ width: 400 }}
+                    placeholder="请选择多个资源"
+                    value={selectedResourceIds}
+                    onChange={setSelectedResourceIds}
+                    showSearch
+                    optionFilterProp="children"
+                    options={resources.map((r) => ({
+                      value: r.id,
+                      label: r.resourceName,
+                    }))}
+                  />
+                  <div style={{ marginTop: "8px" }}>
+                    {selectedResourceIds.map((id, index) => {
+                      const resource = resources.find((r) => r.id === id);
+                      const colors = [
+                        "#ff4d4f",
+                        "#1890ff",
+                        "#52c41a",
+                        "#faad14",
+                        "#722ed1",
+                        "#eb2f96",
+                      ];
+                      return (
+                        <Tag key={id} color={colors[index % colors.length]}>
+                          {resource?.resourceName || id}
+                        </Tag>
+                      );
+                    })}
+                  </div>
+                </Form.Item>
+              )}
               <Form.Item name="timeRange" label="时间范围">
                 <RangePicker showTime format="YYYY-MM-DD HH:mm:ss" />
               </Form.Item>
               <Form.Item>
                 <Space>
-                  <Button
-                    type="primary"
-                    onClick={handleTrajectoryQuery}
-                    loading={loading}
-                  >
-                    查询轨迹
-                  </Button>
-                  <Button onClick={handleHeatmapQuery} loading={loading}>
-                    生成热力图
-                  </Button>
-                  <Button onClick={handleStatsQuery} loading={loading}>
-                    统计数据
-                  </Button>
+                  {playbackMode === "single" ? (
+                    <>
+                      <Button
+                        type="primary"
+                        onClick={handleTrajectoryQuery}
+                        loading={loading}
+                      >
+                        查询轨迹
+                      </Button>
+                      <Button onClick={handleHeatmapQuery} loading={loading}>
+                        生成热力图
+                      </Button>
+                      <Button
+                        onClick={handleTimeHeatmapQuery}
+                        loading={loading}
+                      >
+                        时间动态热力图
+                      </Button>
+                      <Button onClick={handleStatsQuery} loading={loading}>
+                        统计数据
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      type="primary"
+                      onClick={handleMultiTrajectoryQuery}
+                      loading={loading}
+                      disabled={selectedResourceIds.length === 0}
+                    >
+                      查询多车辆轨迹
+                    </Button>
+                  )}
                 </Space>
               </Form.Item>
             </Form>

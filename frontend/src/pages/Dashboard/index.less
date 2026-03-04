@@ -1,0 +1,441 @@
+/**
+ * Dashboard 页面样式
+ */
+
+.dashboard {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  background: #f0f2f5;
+
+  // 统计面板行
+  .stats-row {
+    padding: 12px 16px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    flex-shrink: 0;
+
+    .ant-col {
+      padding: 0 6px;
+    }
+
+    .stat-card {
+      border-radius: 8px;
+      border: none;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      transition: all 0.3s ease;
+      cursor: default;
+      overflow: hidden;
+      height: 68px;
+      min-width: 0;
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+      }
+
+      .ant-card-body {
+        padding: 10px 12px;
+        display: flex;
+        align-items: center;
+        height: 100%;
+        min-width: 0;
+      }
+
+      .ant-statistic {
+        width: 100%;
+        min-width: 0;
+      }
+
+      .ant-statistic-title {
+        font-size: 12px;
+        color: #8c8c8c;
+        margin-bottom: 2px;
+        font-weight: 500;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .ant-statistic-content {
+        font-size: 20px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        min-width: 0;
+        flex-wrap: nowrap;
+
+        .anticon {
+          font-size: 18px;
+          margin-right: 6px;
+          flex-shrink: 0;
+        }
+
+        .ant-statistic-content-value {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+      }
+
+      // 资源总数 - 蓝色主题
+      &.stat-total {
+        background: linear-gradient(135deg, #e6f7ff 0%, #bae7ff 100%);
+        border-left: 4px solid #1890ff;
+
+        .ant-statistic-content {
+          color: #1890ff;
+        }
+
+        .anticon {
+          color: #1890ff;
+        }
+      }
+
+      // 在线 - 绿色主题
+      &.stat-online {
+        background: linear-gradient(135deg, #f6ffed 0%, #d9f7be 100%);
+        border-left: 4px solid #52c41a;
+
+        .ant-statistic-content {
+          color: #52c41a;
+        }
+
+        .anticon {
+          color: #52c41a;
+        }
+      }
+
+      // 离线 - 灰色主题
+      &.stat-offline {
+        background: linear-gradient(135deg, #fafafa 0%, #f0f0f0 100%);
+        border-left: 4px solid #8c8c8c;
+
+        .ant-statistic-content {
+          color: #8c8c8c;
+        }
+
+        .anticon {
+          color: #8c8c8c;
+        }
+      }
+
+      // 告警 - 红色主题
+      &.stat-alarm {
+        background: linear-gradient(135deg, #fff1f0 0%, #ffccc7 100%);
+        border-left: 4px solid #ff4d4f;
+
+        .ant-statistic-content {
+          color: #ff4d4f;
+        }
+
+        .anticon {
+          color: #ff4d4f;
+        }
+      }
+
+      // 处理中 - 蓝色主题
+      &.stat-processing {
+        background: linear-gradient(135deg, #e6f7ff 0%, #bae7ff 100%);
+        border-left: 4px solid #1890ff;
+
+        .ant-statistic-content {
+          color: #1890ff;
+        }
+
+        .anticon {
+          color: #1890ff;
+        }
+      }
+
+      // 事件总数 - 橙色主题
+      &.stat-incident {
+        background: linear-gradient(135deg, #fff7e6 0%, #ffd591 100%);
+        border-left: 4px solid #fa8c16;
+
+        .ant-statistic-content {
+          color: #fa8c16;
+        }
+
+        .anticon {
+          color: #fa8c16;
+        }
+      }
+
+      // 兼容旧类名
+      &.online {
+        background: linear-gradient(135deg, #f6ffed 0%, #d9f7be 100%);
+        border-left: 4px solid #52c41a;
+
+        .ant-statistic-content {
+          color: #52c41a;
+        }
+      }
+
+      &.offline {
+        background: linear-gradient(135deg, #fafafa 0%, #f0f0f0 100%);
+        border-left: 4px solid #8c8c8c;
+
+        .ant-statistic-content {
+          color: #8c8c8c;
+        }
+      }
+
+      &.alarm {
+        background: linear-gradient(135deg, #fff1f0 0%, #ffccc7 100%);
+        border-left: 4px solid #ff4d4f;
+
+        .ant-statistic-content {
+          color: #ff4d4f;
+        }
+      }
+
+      &.processing {
+        background: linear-gradient(135deg, #e6f7ff 0%, #bae7ff 100%);
+        border-left: 4px solid #1890ff;
+
+        .ant-statistic-content {
+          color: #1890ff;
+        }
+      }
+
+      &.connection {
+        background: linear-gradient(135deg, #f9f0ff 0%, #efdbff 100%);
+        border-left: 4px solid #722ed1;
+
+        .connection-status {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          padding-top: 0;
+
+          .ant-typography {
+            font-size: 12px;
+            color: #8c8c8c;
+          }
+
+          .ant-statistic-content {
+            color: #722ed1;
+            font-size: 18px;
+          }
+        }
+      }
+    }
+  }
+
+  // 事件统计详情行
+  .incident-stats-row {
+    padding: 10px 16px;
+    background: #fff;
+    border-bottom: 1px solid #f0f0f0;
+    flex-shrink: 0;
+
+    .ant-col {
+      padding: 0 6px;
+    }
+
+    .stat-card-small {
+      border-radius: 6px;
+      border: 1px solid #f0f0f0;
+      height: 88px;
+      background: #fafafa;
+      min-width: 0;
+      overflow: hidden;
+
+      .ant-card-body {
+        padding: 10px 14px;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .stat-card-small-title {
+        font-size: 12px;
+        font-weight: 500;
+        color: #595959;
+        margin-bottom: 6px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        flex-shrink: 0;
+      }
+
+      .stat-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        min-width: 0;
+        flex: 1;
+        padding: 0 6px;
+
+        .stat-label {
+          font-size: 12px;
+          color: #8c8c8c;
+          white-space: nowrap;
+          line-height: 1.4;
+        }
+
+        .stat-value {
+          font-size: 20px;
+          font-weight: 600;
+          line-height: 1.4;
+
+          &.severe {
+            color: #ff4d4f;
+          }
+
+          &.major {
+            color: #faad14;
+          }
+
+          &.minor {
+            color: #52c41a;
+          }
+        }
+      }
+
+      // 事件等级容器
+      .stat-level-container {
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        flex: 1;
+        gap: 12px;
+      }
+
+      // 事件等级卡片特殊样式
+      &.stat-card-level {
+        .ant-card-body {
+          padding: 8px 12px;
+        }
+      }
+
+      .stat-badge {
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 500;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 1;
+        min-width: 0;
+
+        &.fire {
+          background: #fff1f0;
+          color: #ff4d4f;
+        }
+
+        &.medical {
+          background: #f6ffed;
+          color: #52c41a;
+        }
+
+        &.police {
+          background: #e6f7ff;
+          color: #1890ff;
+        }
+
+        &.pending {
+          background: #fffbe6;
+          color: #faad14;
+        }
+
+        &.processing {
+          background: #e6f7ff;
+          color: #1890ff;
+        }
+
+        &.closed {
+          background: #f6ffed;
+          color: #52c41a;
+        }
+      }
+    }
+  }
+
+  // 新事件提示行
+  .new-incident-row {
+    padding: 8px 16px;
+    background: #fff7e6;
+    border-bottom: 1px solid #ffd591;
+    flex-shrink: 0;
+
+    .incident-tag {
+      cursor: pointer;
+      transition: all 0.2s;
+
+      &:hover {
+        opacity: 0.85;
+      }
+    }
+  }
+
+  // 地图容器
+  .map-container-wrapper {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    min-height: 400px;
+    display: flex;
+    flex-direction: column;
+
+    // Ant Design Tabs 容器
+    .ant-tabs {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    // Tabs 内容区域
+    .ant-tabs-content-holder {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .ant-tabs-content {
+      height: 100%;
+    }
+
+    .ant-tabs-tabpane {
+      height: 100%;
+      position: relative;
+    }
+
+    // 确保 OpenLayers canvas 可见
+    .map-container {
+      position: absolute !important;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      width: 100% !important;
+      height: 100% !important;
+      z-index: 1;
+    }
+
+    // 确保 OpenLayers 视口可见
+    .ol-viewport {
+      position: absolute !important;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      width: 100% !important;
+      height: 100% !important;
+    }
+  }
+
+  // 主内容区
+  .main-content {
+    flex: 1;
+    min-height: 0;
+  }
+}

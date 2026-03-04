@@ -83,6 +83,16 @@ export async function query<T = RowDataPacket[]>(
 }
 
 /**
+ * 将对象中的 undefined 转换为 null（mysql2 要求）
+ *
+ * @param value - 任意值
+ * @returns 处理后的值
+ */
+function nullifyUndefined(value: any): any {
+  return value === undefined ? null : value;
+}
+
+/**
  * 执行插入操作
  *
  * @param tableName - 表名
@@ -96,7 +106,8 @@ export async function query<T = RowDataPacket[]>(
  */
 export async function insert(tableName: string, data: Record<string, any>): Promise<string> {
   const keys = Object.keys(data);
-  const values = Object.values(data);
+  // 将 undefined 转换为 null，避免 mysql2 报错
+  const values = Object.values(data).map(nullifyUndefined);
   const placeholders = keys.map(() => '?').join(', ');
 
   const sql = `INSERT INTO ${tableName} (${keys.join(', ')}) VALUES (${placeholders})`;
@@ -136,7 +147,11 @@ export async function update(
     .join(' AND ');
 
   const sql = `UPDATE ${tableName} SET ${setClause} WHERE ${whereClause}`;
-  const params = [...Object.values(data), ...Object.values(where)];
+  // 将 undefined 转换为 null，避免 mysql2 报错
+  const params = [
+    ...Object.values(data).map(nullifyUndefined),
+    ...Object.values(where).map(nullifyUndefined)
+  ];
 
   try {
     const result = (await query<ResultSetHeader>(sql, params)) as ResultSetHeader;
@@ -168,7 +183,8 @@ export async function deleteData(
     .join(' AND ');
 
   const sql = `DELETE FROM ${tableName} WHERE ${whereClause}`;
-  const params = Object.values(where);
+  // 将 undefined 转换为 null，避免 mysql2 报错
+  const params = Object.values(where).map(nullifyUndefined);
 
   try {
     const result = (await query<ResultSetHeader>(sql, params)) as ResultSetHeader;

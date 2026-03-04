@@ -36,7 +36,8 @@ export const config = {
     defaultZoom: 12,
     minZoom: 3,
     maxZoom: 18,
-    osmTileUrl: 'https://{a-c}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    // OSM 瓦片服务
+    osmTileUrl: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
   },
 
   // UI配置

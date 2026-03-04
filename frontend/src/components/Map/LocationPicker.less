@@ -1,0 +1,134 @@
+.location-picker {
+  width: 100%;
+
+  &-trigger {
+    display: flex;
+    align-items: center;
+    padding: 4px 11px;
+    background: #fff;
+    border: 1px solid #d9d9d9;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s;
+
+    &:hover:not(.disabled) {
+      border-color: #4096ff;
+    }
+
+    &.disabled {
+      background: #f5f5f5;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+  }
+
+  &-icon {
+    color: #999;
+    margin-right: 8px;
+    font-size: 14px;
+  }
+
+  &-text {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 14px;
+    color: #333;
+
+    &.placeholder {
+      color: #bfbfbf;
+    }
+  }
+}
+
+.location-picker-modal {
+  .ant-modal-body {
+    padding: 16px;
+  }
+}
+
+.location-picker-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.location-picker-search {
+  width: 100%;
+}
+
+.location-picker-coords {
+  padding: 12px;
+  background: #fafafa;
+  border-radius: 6px;
+
+  .coord-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    label {
+      font-size: 14px;
+      color: #666;
+      white-space: nowrap;
+    }
+  }
+}
+
+.location-picker-map {
+  position: relative;
+  height: 400px;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  overflow: hidden;
+
+  .map-container {
+    width: 100%;
+    height: 100%;
+  }
+
+  .map-hint {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    padding: 4px 12px;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    font-size: 12px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+}
+
+.location-picker-info {
+  padding: 12px;
+  background: #e6f4ff;
+  border: 1px solid #91caff;
+  border-radius: 6px;
+
+  .info-item {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 4px;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    .info-label {
+      flex-shrink: 0;
+      font-size: 14px;
+      color: #666;
+      margin-right: 8px;
+    }
+
+    .info-value {
+      font-size: 14px;
+      color: #333;
+      word-break: break-all;
+    }
+  }
+}

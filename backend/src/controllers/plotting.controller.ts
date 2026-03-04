@@ -66,7 +66,6 @@ export class PlottingController {
       );
       const total = countResult[0].total;
 
-      // 查询列表
       const plottings = await query<any[]>(
         `SELECT
           p.id,
@@ -74,16 +73,15 @@ export class PlottingController {
           i.title as incident_title,
           p.plotting_type as type,
           p.plotting_name as title,
-          p.description,
           p.geometry,
           p.style,
-          p.created_by,
+          p.creator_id as created_by,
           creator.username as creator_name,
           p.created_at,
           p.updated_at
          FROM t_plotting p
          LEFT JOIN t_incident i ON p.incident_id = i.id
-         LEFT JOIN t_user creator ON p.created_by = creator.id
+         LEFT JOIN t_user creator ON p.creator_id = creator.id
          WHERE ${whereClause}
          ORDER BY p.created_at DESC
          LIMIT ${pageSizeNum} OFFSET ${offset}`,
@@ -120,19 +118,18 @@ export class PlottingController {
           p.id,
           p.incident_id,
           i.title as incident_title,
-          p.type,
-          p.title,
-          p.description,
+          p.plotting_type as type,
+          p.plotting_name as title,
           p.geometry,
           p.style,
-          p.created_by,
+          p.creator_id as created_by,
           creator.username as creator_name,
           creator.real_name as creator_real_name,
           p.created_at,
           p.updated_at
          FROM t_plotting p
          LEFT JOIN t_incident i ON p.incident_id = i.id
-         LEFT JOIN t_user creator ON p.created_by = creator.id
+         LEFT JOIN t_user creator ON p.creator_id = creator.id
          WHERE p.id = ? AND p.deleted_at IS NULL`,
         [id]
       );
@@ -167,7 +164,6 @@ export class PlottingController {
         incidentId,
         type,
         title,
-        description,
         geometry,
         style,
       } = req.body;
@@ -187,14 +183,13 @@ export class PlottingController {
 
       await query(
         `INSERT INTO t_plotting (
-          id, incident_id, plotting_type, plotting_name, description, geometry, style, created_by, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+          id, incident_id, plotting_type, plotting_name, geometry, style, creator_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [
           plottingId,
           incidentId || null,
           type,
           title || null,
-          description || null,
           JSON.stringify(geometry),
           style ? JSON.stringify(style) : null,
           req.user.userId,
@@ -224,7 +219,6 @@ export class PlottingController {
       const { id } = req.params;
       const {
         title,
-        description,
         geometry,
         style,
       } = req.body;
@@ -246,11 +240,6 @@ export class PlottingController {
       if (title !== undefined) {
         updates.push('plotting_name = ?');
         values.push(title);
-      }
-
-      if (description !== undefined) {
-        updates.push('description = ?');
-        values.push(description);
       }
 
       if (geometry !== undefined) {
@@ -336,16 +325,15 @@ export class PlottingController {
         `SELECT
           p.id,
           p.incident_id,
-          p.type,
-          p.title,
-          p.description,
+          p.plotting_type as type,
+          p.plotting_name as title,
           p.geometry,
           p.style,
-          p.created_by,
+          p.creator_id as created_by,
           creator.username as creator_name,
           p.created_at
          FROM t_plotting p
-         LEFT JOIN t_user creator ON p.created_by = creator.id
+         LEFT JOIN t_user creator ON p.creator_id = creator.id
          WHERE p.incident_id = ? AND p.deleted_at IS NULL
          ORDER BY p.created_at ASC`,
         [incidentId]

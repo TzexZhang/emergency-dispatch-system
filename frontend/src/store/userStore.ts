@@ -97,6 +97,14 @@ export const isAuthenticated = () => {
 };
 
 /**
+ * Hook: 检查 hydration 是否完成
+ * 用于解决 Zustand persist 中间件的竞态问题
+ */
+export const useHydration = () => {
+  return useUserStore.persist.hasHydrated();
+};
+
+/**
  * 辅助函数：检查用户权限
  */
 export const hasRole = (roles: string[]) => {

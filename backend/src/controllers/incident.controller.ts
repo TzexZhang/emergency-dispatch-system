@@ -19,6 +19,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { query } from '@utils/db';
 import { logger } from '@utils/logger';
 import { NotFoundError, ValidationError } from '@middlewares/error.middleware';
+import { getWsGateway } from '@websocket/export';
 
 /**
  * 事件管理控制器类
@@ -220,6 +221,21 @@ export class IncidentController {
         ]
       );
 
+      // 广播新事件创建
+      try {
+        const wsGateway = getWsGateway();
+        wsGateway.broadcastNewIncident({
+          id: incidentId,
+          type: type,
+          level: level || 'medium',
+          title: title,
+          lng: longitude || 0,
+          lat: latitude || 0,
+        });
+      } catch (wsError) {
+        logger.warn('WebSocket推送事件创建失败:', wsError);
+      }
+
       logger.info(`用户 ${req.user.userName} 创建事件: ${incidentId}`);
 
       res.json({
@@ -399,6 +415,46 @@ export class IncidentController {
       res.json({
         code: 200,
         message: '事件已关闭',
+      });
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  public getStats = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const result = await query<any[]>(
+        `SELECT
+          COUNT(*) as total,
+          SUM(CASE WHEN incident_status = 'pending' THEN 1 ELSE 0 END) as pending,
+          SUM(CASE WHEN incident_status = 'processing' THEN 1 ELSE 0 END) as processing,
+          SUM(CASE WHEN incident_status = 'closed' THEN 1 ELSE 0 END) as closed,
+          SUM(CASE WHEN incident_level = 'severe' THEN 1 ELSE 0 END) as severe,
+          SUM(CASE WHEN incident_level = 'major' THEN 1 ELSE 0 END) as major,
+          SUM(CASE WHEN incident_level = 'minor' THEN 1 ELSE 0 END) as minor
+         FROM t_incident
+         WHERE deleted_at IS NULL`
+      );
+
+      const typeStats = await query<any[]>(
+        `SELECT
+          incident_type as type,
+          COUNT(*) as count
+         FROM t_incident
+         WHERE deleted_at IS NULL
+         GROUP BY incident_type`
+      );
+
+      res.json({
+        code: 200,
+        message: 'success',
+        data: {
+          ...result[0],
+          byType: typeStats.reduce((acc, item) => {
+            acc[item.type] = item.count;
+            return acc;
+          }, {} as Record<string, number>)
+        }
       });
     } catch (error) {
       throw error;

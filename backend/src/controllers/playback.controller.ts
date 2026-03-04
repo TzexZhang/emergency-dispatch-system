@@ -46,14 +46,13 @@ export class PlaybackController {
       // 查询轨迹数据
       const trajectories = await query<any[]>(
         `SELECT
-          t.id,
           t.resource_id,
-          r.name as resource_name,
+          r.resource_name,
           t.latitude,
           t.longitude,
           t.speed,
           t.direction,
-          t.location,
+          t.altitude,
           t.recorded_at
          FROM t_trajectory t
          LEFT JOIN t_resource r ON t.resource_id = r.id
@@ -161,12 +160,12 @@ export class PlaybackController {
       const trajectories = await query<any[]>(
         `SELECT
           t.resource_id,
-          r.name as resource_name,
+          r.resource_name,
           t.latitude,
           t.longitude,
           t.speed,
           t.direction,
-          t.location,
+          t.altitude,
           t.recorded_at
          FROM t_trajectory t
          LEFT JOIN t_resource r ON t.resource_id = r.id
@@ -213,9 +212,9 @@ export class PlaybackController {
         res.send(JSON.stringify(geojson, null, 2));
       } else if (format === 'csv') {
         // 导出为CSV格式
-        const headers = ['Time,Latitude,Longitude,Speed,Direction,Location'];
+        const headers = ['Time,Latitude,Longitude,Speed,Direction,Altitude'];
         const rows = trajectories.map(t =>
-          `${t.recorded_at},${t.latitude},${t.longitude},${t.speed || 0},${t.direction || 0},${t.location || ''}`
+          `${t.recorded_at},${t.latitude},${t.longitude},${t.speed || 0},${t.direction || 0},${t.altitude || 0}`
         );
 
         res.setHeader('Content-Type', 'text/csv');

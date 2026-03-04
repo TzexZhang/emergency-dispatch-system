@@ -17,7 +17,7 @@ import path from 'path';
 import { ValidationError } from './error.middleware';
 
 // 上传目录的绝对路径
-const UPLOAD_DIR = path.resolve(__dirname, '../uploads');
+const UPLOAD_DIR = path.resolve(__dirname, '../../uploads');
 const AVATAR_DIR = path.join(UPLOAD_DIR, 'avatars');
 
 /**

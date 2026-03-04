@@ -15,86 +15,330 @@
  * @author Emergency Dispatch Team
  */
 
-import Map from 'ol/Map';
-import View from 'ol/View';
-import TileLayer from 'ol/layer/Tile';
-import VectorLayer from 'ol/layer/Vector';
-import VectorSource from 'ol/source/Vector';
-import { Cluster } from 'ol/source';
-import OSM from 'ol/source/OSM';
-import Overlay from 'ol/Overlay';
-import { fromLonLat, toLonLat, transform } from 'ol/proj';
-import { defaults as defaultControls } from 'ol/control';
-import { Style, Circle, Fill, Stroke, Text } from 'ol/style';
-import { Feature } from 'ol';
-import { Point, Polygon, LineString } from 'ol/geom';
-import proj4 from 'proj4';
-import { register } from 'ol/proj/proj4';
-import { config } from '@/config';
-import type { Resource, ResourceStatus } from '@/types';
+import Map from "ol/Map";
+import View from "ol/View";
+import TileLayer from "ol/layer/Tile";
+import VectorLayer from "ol/layer/Vector";
+import VectorSource from "ol/source/Vector";
+import { Cluster } from "ol/source";
+import XYZ from "ol/source/XYZ";
+import Overlay from "ol/Overlay";
+import { fromLonLat, toLonLat, transform } from "ol/proj";
+import { defaults as defaultControls } from "ol/control";
+import { Style, Circle, Fill, Stroke, Text, Icon } from "ol/style";
+import { Feature } from "ol";
+import { Point, Polygon, LineString } from "ol/geom";
+import WebGLPointsLayer from "ol/layer/WebGLPoints";
+import Draw from "ol/interaction/Draw";
+import proj4 from "proj4";
+import { register } from "ol/proj/proj4";
+import { config } from "@/config";
+import type { Resource, ResourceStatus, IncidentStatus } from "@/types";
 
 /**
  * 注册自定义坐标系
  */
-proj4.defs('EPSG:4490', '+proj=longlat +ellps=GRS80 +no_defs');
-proj4.defs('GCJ-02', '+proj=longlat +ellps=WGS84 +no_defs');
+proj4.defs("EPSG:4490", "+proj=longlat +ellps=GRS80 +no_defs");
+proj4.defs("GCJ-02", "+proj=longlat +ellps=WGS84 +no_defs");
 register(proj4);
 
 /**
  * 地图配置接口
  */
 export interface MapConfig {
-  target: string | HTMLElement;
+  target: HTMLElement | string;
   center: [number, number];
   zoom: number;
   minZoom?: number;
   maxZoom?: number;
   useCluster?: boolean;
+  useWebGL?: boolean;
 }
 
 /**
  * 地图服务类
  */
-const STATUS_CONFIG: Record<ResourceStatus, { color: string; fillColor: string }> = {
-  online: { color: '#52c41a', fillColor: 'rgba(82, 196, 26, 0.3)' },
-  offline: { color: '#d9d9d9', fillColor: 'rgba(217, 217, 217, 0.3)' },
-  alarm: { color: '#ff4d4f', fillColor: 'rgba(255, 77, 79, 0.3)' },
-  processing: { color: '#1890ff', fillColor: 'rgba(24, 144, 255, 0.3)' },
+
+// 资源类型图标配置
+const RESOURCE_TYPE_CONFIG: Record<
+  string,
+  {
+    shape: "circle" | "cross" | "triangle" | "square" | "diamond" | "star";
+    color: string;
+    label: string;
+  }
+> = {
+  ambulance: { shape: "cross", color: "#FF0000", label: "救护车" },
+  fire_truck: { shape: "triangle", color: "#FF6600", label: "消防车" },
+  police_car: { shape: "square", color: "#0000FF", label: "警车" },
+  sensor: { shape: "diamond", color: "#00AA00", label: "传感器" },
+  person: { shape: "circle", color: "#0066FF", label: "人员" },
+};
+
+// ================== 事件类型图标配置（国际通用标准） ==================
+const INCIDENT_TYPE_CONFIG: Record<
+  string,
+  {
+    color: string;
+    label: string;
+    iconType: "fire" | "medical" | "traffic" | "police" | "disaster";
+  }
+> = {
+  fire: { color: "#FF4D4F", label: "火灾", iconType: "fire" },
+  medical: { color: "#52C41A", label: "医疗急救", iconType: "medical" },
+  traffic: { color: "#1890FF", label: "交通事故", iconType: "traffic" },
+  public_security: { color: "#722ED1", label: "公共安全", iconType: "police" },
+  natural_disaster: {
+    color: "#FA8C16",
+    label: "自然灾害",
+    iconType: "disaster",
+  },
+};
+
+// 事件等级颜色
+const INCIDENT_LEVEL_COLORS: Record<string, string> = {
+  minor: "#52C41A", // 一般 - 绿色
+  major: "#FAAD14", // 重大 - 橙色
+  severe: "#FF4D4F", // 特大 - 红色
+};
+
+// ================== SVG 图标生成函数 ==================
+
+/**
+ * 生成火焰图标 SVG (火灾)
+ */
+const createFireIconSVG = (color: string, size: number = 24): string => {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="${color}">
+    <path d="M12 23c-3.866 0-7-3.134-7-7 0-2.577 1.61-5.126 3.24-7.068.672-.8 1.36-1.532 2.01-2.182C11.5 5.5 12 4.5 12 3c0 2 1.5 3.5 2.5 4.5.65.65 1.338 1.382 2.01 2.182C18.39 10.874 20 13.423 20 16c0 3.866-3.134 7-7 7zm0-4c1.657 0 3-1.343 3-3 0-1.028-.5-2-1.5-3-.5.5-1 1-1.5 1.5-.5-.5-1-1-1.5-1.5-1 1-1.5 1.972-1.5 3 0 1.657 1.343 3 3 3z"/>
+  </svg>`;
+};
+
+/**
+ * 生成医疗十字图标 SVG (医疗急救)
+ */
+const createMedicalIconSVG = (color: string, size: number = 24): string => {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="${color}">
+    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/>
+  </svg>`;
+};
+
+/**
+ * 生成汽车图标 SVG (交通事故)
+ */
+const createTrafficIconSVG = (color: string, size: number = 24): string => {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="${color}">
+    <path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/>
+  </svg>`;
+};
+
+/**
+ * 生成盾牌图标 SVG (公共安全/治安)
+ */
+const createPoliceIconSVG = (color: string, size: number = 24): string => {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="${color}">
+    <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>
+  </svg>`;
+};
+
+/**
+ * 生成警告三角形图标 SVG (自然灾害)
+ */
+const createDisasterIconSVG = (color: string, size: number = 24): string => {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="${color}">
+    <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+  </svg>`;
+};
+
+/**
+ * 生成救护车图标 SVG
+ */
+const createAmbulanceIconSVG = (color: string, size: number = 24): string => {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="${color}">
+    <path d="M20 6h-3.5l-1.5-3H9L7.5 6H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-7 9h-2v2H9v-2H7v-2h2v-2h2v2h2v2zm-4-9l1-2h4l1 2H9z"/>
+  </svg>`;
+};
+
+/**
+ * 生成消防车图标 SVG
+ */
+const createFireTruckIconSVG = (color: string, size: number = 24): string => {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="${color}">
+    <path d="M22 16v-2l-2-4H2v8h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-2h-2zM7 19c-.83 0-1.5-.67-1.5-1.5S6.17 16 7 16s1.5.67 1.5 1.5S7.83 19 7 19zm10 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM4 12h10v2H4v-2zm12 0h4l1.5 2H16v-2z"/>
+  </svg>`;
+};
+
+/**
+ * 生成警车图标 SVG
+ */
+const createPoliceCarIconSVG = (color: string, size: number = 24): string => {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="${color}">
+    <path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/>
+    <circle cx="12" cy="4" r="2"/>
+  </svg>`;
+};
+
+/**
+ * 生成传感器图标 SVG
+ */
+const createSensorIconSVG = (color: string, size: number = 24): string => {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="${color}">
+    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+  </svg>`;
+};
+
+/**
+ * 生成人员图标 SVG
+ */
+const createPersonIconSVG = (color: string, size: number = 24): string => {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="${color}">
+    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+  </svg>`;
+};
+
+/**
+ * 根据事件类型获取 SVG 图标
+ */
+const getIncidentIconSVG = (
+  type: string,
+  color: string,
+  size: number = 24,
+): string => {
+  const config = INCIDENT_TYPE_CONFIG[type];
+  if (!config) return createDisasterIconSVG(color, size);
+
+  switch (config.iconType) {
+    case "fire":
+      return createFireIconSVG(color, size);
+    case "medical":
+      return createMedicalIconSVG(color, size);
+    case "traffic":
+      return createTrafficIconSVG(color, size);
+    case "police":
+      return createPoliceIconSVG(color, size);
+    case "disaster":
+    default:
+      return createDisasterIconSVG(color, size);
+  }
+};
+
+/**
+ * 根据资源类型获取 SVG 图标
+ */
+const getResourceIconSVG = (
+  typeCode: string,
+  color: string,
+  size: number = 24,
+): string => {
+  switch (typeCode) {
+    case "ambulance":
+      return createAmbulanceIconSVG(color, size);
+    case "fire_truck":
+      return createFireTruckIconSVG(color, size);
+    case "police_car":
+      return createPoliceCarIconSVG(color, size);
+    case "sensor":
+      return createSensorIconSVG(color, size);
+    case "person":
+      return createPersonIconSVG(color, size);
+    default:
+      return createPersonIconSVG(color, size);
+  }
+};
+
+/**
+ * 将 SVG 转换为 Data URL
+ */
+const svgToDataURL = (svg: string): string => {
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 };
 
 export class MapService {
   private map: Map | null = null;
-  private baseLayer: TileLayer<OSM> | null = null;
-  private resourceLayer: VectorLayer<any> | null = null;
+  public baseLayer: TileLayer<XYZ> | null = null;
+  public resourceLayer: VectorLayer<any> | null = null;
   private resourceSource: VectorSource<Feature> | null = null;
+  private webglResourceLayer: WebGLPointsLayer<any> | null = null;
+  private webglResourceSource: VectorSource<Feature> | null = null;
   private clusterLayer: VectorLayer<any> | null = null;
   private clusterSource: Cluster<Feature> | null = null;
   private analysisLayer: VectorLayer<any> | null = null;
   private analysisSource: VectorSource<Feature> | null = null;
   private trajectoryLayer: VectorLayer<any> | null = null;
   private trajectorySource: VectorSource<Feature> | null = null;
+  private multiTrajectoryLayers: Record<string, VectorLayer<any>> = {};
+  private multiTrajectorySources: Record<string, VectorSource<Feature>> = {};
+  private heatmapLayer: VectorLayer<any> | null = null;
+  private heatmapSource: VectorSource<Feature> | null = null;
+  private trackingLayer: VectorLayer<any> | null = null;
+  private trackingSource: VectorSource<Feature> | null = null;
+  private trackingAnimationId: number | null = null;
   private popupOverlay: Overlay | null = null;
   private playbackAnimationId: number | null = null;
+  private multiPlaybackAnimationId: number | null = null;
   private useCluster: boolean = false;
+  private useWebGL: boolean = false;
+  private tempMarkerSource: VectorSource<Feature> | null = null;
+  private tempMarkerLayer: VectorLayer<any> | null = null;
 
   /**
    * 初始化地图
    *
    * @param mapConfig - 地图配置
    * @param useCluster - 是否启用聚合（默认false）
+   * @param useWebGL - 是否使用WebGL渲染（默认false）
    * @returns OpenLayers Map实例
    */
-  public initMap(mapConfig: MapConfig, useCluster: boolean = false): Map {
+  public initMap(
+    mapConfig: MapConfig,
+    useCluster: boolean = false,
+    useWebGL: boolean = false,
+  ): Map {
+    // 如果已存在地图实例，先销毁
+    if (this.map) {
+      this.destroy();
+    }
+
+    // 使用 XYZ source 支持多种瓦片服务（OSM/高德/天地图等）
+    const tileSource = new XYZ({
+      url: config.map.osmTileUrl,
+      maxZoom: config.map.maxZoom,
+      crossOrigin: "anonymous",
+    });
+
     this.baseLayer = new TileLayer({
-      source: new OSM({
-        url: config.map.osmTileUrl,
-      }),
+      source: tileSource,
     });
 
     this.resourceSource = new VectorSource<Feature>();
     this.resourceLayer = new VectorLayer({
       source: this.resourceSource,
       zIndex: 10,
+    });
+
+    this.webglResourceSource = new VectorSource<Feature>();
+    this.webglResourceLayer = new WebGLPointsLayer({
+      source: this.webglResourceSource as any,
+      zIndex: 10,
+      style: {
+        "circle-radius": 8,
+        "circle-fill-color": [
+          "match",
+          ["get", "typeCode"],
+          "ambulance",
+          "rgba(255, 0, 0, 1)",
+          "fire_truck",
+          "rgba(255, 102, 0, 1)",
+          "police_car",
+          "rgba(0, 0, 255, 1)",
+          "sensor",
+          "rgba(0, 170, 0, 1)",
+          "person",
+          "rgba(0, 102, 255, 1)",
+          "rgba(128, 128, 128, 1)",
+        ],
+        "circle-stroke-color": "#fff",
+        "circle-stroke-width": 2,
+      },
     });
 
     this.clusterSource = new Cluster({
@@ -106,19 +350,37 @@ export class MapService {
       source: this.clusterSource,
       zIndex: 10,
       style: (feature) => {
-        const size = feature.get('features')?.length || 1;
+        const features = feature.get("features");
+        const size = features?.length || 1;
+
+        // 当聚合数量为1时，显示单独的资源图标样式
+        if (size === 1 && features && features[0]) {
+          const originalFeature = features[0];
+          const data = originalFeature.get("data") as Resource;
+          if (data) {
+            return this.createResourceStyle(
+              data.resourceStatus,
+              data.typeCode,
+              data.resourceName,
+            );
+          }
+        }
+
+        // 聚合数量大于1时，显示聚合样式
         const radius = 15 + Math.min(size * 2, 20);
 
         return new Style({
           image: new Circle({
             radius,
-            fill: new Fill({ color: `rgba(24, 144, 255, ${Math.min(size / 20 + 0.3, 0.8)})` }),
-            stroke: new Stroke({ color: '#1890ff', width: 2 }),
+            fill: new Fill({
+              color: `rgba(24, 144, 255, ${Math.min(size / 20 + 0.3, 0.8)})`,
+            }),
+            stroke: new Stroke({ color: "#1890ff", width: 2 }),
           }),
           text: new Text({
             text: size.toString(),
-            font: 'bold 14px sans-serif',
-            fill: new Fill({ color: '#fff' }),
+            font: "bold 14px sans-serif",
+            fill: new Fill({ color: "#fff" }),
           }),
         });
       },
@@ -130,11 +392,11 @@ export class MapService {
       zIndex: 20,
       style: new Style({
         stroke: new Stroke({
-          color: '#1890ff',
+          color: "#1890ff",
           width: 2,
         }),
         fill: new Fill({
-          color: 'rgba(24, 144, 255, 0.1)',
+          color: "rgba(24, 144, 255, 0.1)",
         }),
       }),
     });
@@ -145,16 +407,32 @@ export class MapService {
       zIndex: 30,
       style: new Style({
         stroke: new Stroke({
-          color: '#ff4d4f',
+          color: "#ff4d4f",
           width: 3,
         }),
       }),
     });
 
+    this.heatmapSource = new VectorSource<Feature>();
+    this.heatmapLayer = new VectorLayer({
+      source: this.heatmapSource,
+      zIndex: 25,
+    });
+
+    // 追踪图层 - 用于高亮显示被追踪的资源
+    this.trackingSource = new VectorSource<Feature>();
+    this.trackingLayer = new VectorLayer({
+      source: this.trackingSource,
+      zIndex: 100, // 最高层级
+    });
+
     this.useCluster = useCluster;
+    this.useWebGL = useWebGL;
 
     const layers: any[] = [this.baseLayer];
-    if (useCluster) {
+    if (useWebGL) {
+      layers.push(this.webglResourceLayer);
+    } else if (useCluster) {
       layers.push(this.clusterLayer);
     } else {
       layers.push(this.resourceLayer);
@@ -162,16 +440,22 @@ export class MapService {
     if (this.analysisLayer) {
       layers.push(this.analysisLayer);
     }
+    if (this.heatmapLayer) {
+      layers.push(this.heatmapLayer);
+    }
     if (this.trajectoryLayer) {
       layers.push(this.trajectoryLayer);
+    }
+    if (this.trackingLayer) {
+      layers.push(this.trackingLayer);
     }
 
     this.map = new Map({
       target: mapConfig.target,
       layers,
       view: new View({
-        center: fromLonLat(mapConfig.center),
-        zoom: mapConfig.zoom,
+        center: fromLonLat(mapConfig.center || [116.404, 39.915]),
+        zoom: mapConfig.zoom || 12,
         minZoom: mapConfig.minZoom ?? config.map.minZoom,
         maxZoom: mapConfig.maxZoom ?? config.map.maxZoom,
       }),
@@ -183,7 +467,7 @@ export class MapService {
     });
 
     this.popupOverlay = new Overlay({
-      element: document.createElement('div'),
+      element: document.createElement("div"),
       autoPan: {
         animation: {
           duration: 250,
@@ -191,6 +475,16 @@ export class MapService {
       },
     });
     this.map.addOverlay(this.popupOverlay);
+
+    // 强制触发初始渲染和瓦片加载
+    this.map.updateSize();
+    this.map.render();
+
+    // 刷新瓦片源
+    const baseSource = this.baseLayer?.getSource() as XYZ;
+    if (baseSource) {
+      baseSource.refresh();
+    }
 
     return this.map;
   }
@@ -255,8 +549,12 @@ export class MapService {
    * @param lat - 纬度
    * @param fromProj - 源坐标系（默认WGS84）
    */
-  public fromLonLat(lng: number, lat: number, fromProj: string = 'EPSG:4326'): number[] {
-    return transform([lng, lat], fromProj, 'EPSG:3857');
+  public fromLonLat(
+    lng: number,
+    lat: number,
+    fromProj: string = "EPSG:4326",
+  ): number[] {
+    return transform([lng, lat], fromProj, "EPSG:3857");
   }
 
   /**
@@ -265,8 +563,8 @@ export class MapService {
    * @param coords - 地图坐标
    * @param toProj - 目标坐标系（默认WGS84）
    */
-  public toLonLat(coords: number[], toProj: string = 'EPSG:4326'): number[] {
-    return transform(coords, 'EPSG:3857', toProj);
+  public toLonLat(coords: number[], toProj: string = "EPSG:4326"): number[] {
+    return transform(coords, "EPSG:3857", toProj);
   }
 
   /**
@@ -299,6 +597,15 @@ export class MapService {
   }
 
   /**
+   * 更新地图尺寸
+   * 当容器尺寸发生变化时调用此方法，确保地图正确渲染
+   */
+  public updateSize(): void {
+    if (!this.map) return;
+    this.map.updateSize();
+  }
+
+  /**
    * 添加图层
    *
    * @param layer - 图层实例
@@ -324,32 +631,220 @@ export class MapService {
   public destroy(): void {
     if (this.map) {
       this.map.setTarget(undefined);
+      this.map.dispose();
       this.map = null;
-      this.resourceSource = null;
-      this.resourceLayer = null;
-      this.baseLayer = null;
+    }
+    // 清理所有图层和源
+    this.baseLayer = null;
+    this.resourceSource = null;
+    this.resourceLayer = null;
+    this.webglResourceSource = null;
+    this.webglResourceLayer = null;
+    this.clusterSource = null;
+    this.clusterLayer = null;
+    this.analysisSource = null;
+    this.analysisLayer = null;
+    this.trajectorySource = null;
+    this.trajectoryLayer = null;
+    this.heatmapSource = null;
+    this.heatmapLayer = null;
+    this.trackingSource = null;
+    this.trackingLayer = null;
+    this.tempMarkerSource = null;
+    this.tempMarkerLayer = null;
+    this.popupOverlay = null;
+    this.multiTrajectoryLayers = {};
+    this.multiTrajectorySources = {};
+    this.useCluster = false;
+    this.useWebGL = false;
+  }
+
+  /**
+   * 添加临时标记点（用于位置选择器）
+   *
+   * @param lng - 经度
+   * @param lat - 纬度
+   * @param options - 标记选项
+   * @returns Feature 实例
+   */
+  public addMarker(
+    lng: number,
+    lat: number,
+    options?: { color?: string; scale?: number },
+  ): Feature {
+    // 初始化临时标记图层
+    if (!this.tempMarkerSource) {
+      this.tempMarkerSource = new VectorSource<Feature>();
+      this.tempMarkerLayer = new VectorLayer({
+        source: this.tempMarkerSource,
+        zIndex: 200,
+      });
+      if (this.map) {
+        this.map.addLayer(this.tempMarkerLayer);
+      }
+    }
+
+    // 清除现有标记
+    this.tempMarkerSource.clear();
+
+    // 创建新标记
+    const feature = new Feature({
+      geometry: new Point(fromLonLat([lng, lat])),
+    });
+
+    const color = options?.color || "#1890ff";
+    const scale = options?.scale || 1;
+
+    feature.setStyle(
+      new Style({
+        image: new Circle({
+          radius: 10 * scale,
+          fill: new Fill({ color }),
+          stroke: new Stroke({
+            color: "#fff",
+            width: 3,
+          }),
+        }),
+      }),
+    );
+
+    this.tempMarkerSource.addFeature(feature);
+    return feature;
+  }
+
+  /**
+   * 移除临时标记点
+   *
+   * @param feature - 要移除的 Feature
+   */
+  public removeMarker(feature: Feature): void {
+    if (this.tempMarkerSource) {
+      this.tempMarkerSource.removeFeature(feature);
     }
   }
 
   /**
-   * 创建资源点样式
+   * 清除所有临时标记
    */
-  private createResourceStyle(status: ResourceStatus, label?: string): Style {
-    const statusConfig = STATUS_CONFIG[status] || STATUS_CONFIG.offline;
+  public clearMarkers(): void {
+    if (this.tempMarkerSource) {
+      this.tempMarkerSource.clear();
+    }
+  }
+
+  /**
+   * 创建资源点样式 - 根据资源类型显示不同图标（国际通用图标）
+   * 支持事件类型（以 incident_ 开头的 typeCode）
+   */
+  private createResourceStyle(
+    status: ResourceStatus | IncidentStatus,
+    typeCode?: string,
+    label?: string,
+  ): Style {
+    const iconSize = 28;
+    let color = "#1890ff";
+    let opacity = 1;
+    let svgIcon: string;
+
+    // 检查是否为事件类型（以 incident_ 开头）
+    if (typeCode?.startsWith("incident_")) {
+      const incidentType = typeCode.replace("incident_", "");
+      const typeConfig =
+        INCIDENT_TYPE_CONFIG[incidentType] ||
+        INCIDENT_TYPE_CONFIG.natural_disaster;
+
+      // 根据状态调整颜色
+      if (status === "pending") {
+        color = "#faad14";
+      } else if (status === "processing") {
+        color = "#1890ff";
+      } else if (status === "resolved") {
+        color = "#52c41a";
+      } else if (status === "closed") {
+        color = "#8c8c8c";
+        opacity = 0.6;
+      } else {
+        color = typeConfig.color;
+      }
+
+      svgIcon = getIncidentIconSVG(incidentType, color, iconSize);
+    } else {
+      // 资源类型
+      const typeConfig =
+        RESOURCE_TYPE_CONFIG[typeCode || ""] || RESOURCE_TYPE_CONFIG.person;
+      color = typeConfig.color;
+
+      // 根据状态调整颜色透明度
+      if (status === "offline") {
+        color = "#8c8c8c";
+        opacity = 0.6;
+      } else if (status === "alarm") {
+        color = "#ff4d4f";
+      } else if (status === "processing") {
+        color = "#1890ff";
+      }
+
+      svgIcon = getResourceIconSVG(typeCode || "person", color, iconSize);
+    }
+
+    const iconSrc = svgToDataURL(svgIcon);
 
     return new Style({
-      image: new Circle({
-        radius: 10,
-        fill: new Fill({ color: statusConfig.fillColor }),
-        stroke: new Stroke({ color: statusConfig.color, width: 2 }),
+      image: new Icon({
+        src: iconSrc,
+        width: iconSize,
+        height: iconSize,
+        opacity: opacity,
+        anchor: [0.5, 1],
+        anchorXUnits: "fraction",
+        anchorYUnits: "fraction",
       }),
       text: label
         ? new Text({
             text: label,
-            font: '12px sans-serif',
-            fill: new Fill({ color: '#333' }),
-            stroke: new Stroke({ color: '#fff', width: 2 }),
-            offsetY: -18,
+            font: "12px sans-serif",
+            fill: new Fill({ color: "#333" }),
+            stroke: new Stroke({ color: "#fff", width: 2 }),
+            offsetY: -32,
+          })
+        : undefined,
+    });
+  }
+
+  /**
+   * 创建事件点样式 - 根据事件类型显示不同图标（国际通用图标）
+   */
+  public createIncidentStyle(
+    incidentType: string,
+    level?: string,
+    label?: string,
+  ): Style {
+    const typeConfig =
+      INCIDENT_TYPE_CONFIG[incidentType] ||
+      INCIDENT_TYPE_CONFIG.natural_disaster;
+    const levelColor = level ? INCIDENT_LEVEL_COLORS[level] : typeConfig.color;
+    const iconSize = 28;
+
+    // 生成 SVG 图标
+    const svgIcon = getIncidentIconSVG(incidentType, levelColor, iconSize);
+    const iconSrc = svgToDataURL(svgIcon);
+
+    return new Style({
+      image: new Icon({
+        src: iconSrc,
+        width: iconSize,
+        height: iconSize,
+        anchor: [0.5, 1],
+        anchorXUnits: "fraction",
+        anchorYUnits: "fraction",
+      }),
+      text: label
+        ? new Text({
+            text: label,
+            font: "12px sans-serif",
+            fill: new Fill({ color: "#333" }),
+            stroke: new Stroke({ color: "#fff", width: 2 }),
+            offsetY: -32,
           })
         : undefined,
     });
@@ -359,23 +854,89 @@ export class MapService {
    * 更新资源点位
    */
   public updateResources(resources: Resource[]): void {
-    if (!this.resourceSource) return;
+    if (this.useWebGL) {
+      if (!this.webglResourceSource) return;
+      this.webglResourceSource.clear();
 
-    this.resourceSource.clear();
+      resources.forEach((resource) => {
+        const lng = Number(resource.longitude);
+        const lat = Number(resource.latitude);
+        if (isNaN(lng) || isNaN(lat)) return;
 
-    resources.forEach((resource) => {
-      const feature = new Feature({
-        geometry: new Point(fromLonLat([resource.longitude, resource.latitude])),
-        data: resource,
+        const feature = new Feature({
+          geometry: new Point(fromLonLat([lng, lat])),
+          data: resource,
+          resourceStatus: resource.resourceStatus,
+          typeCode: resource.typeCode,
+        });
+        feature.setId(resource.id);
+        this.webglResourceSource!.addFeature(feature);
+      });
+    } else {
+      if (!this.resourceSource) return;
+      this.resourceSource.clear();
+
+      const validResources: Resource[] = [];
+      resources.forEach((resource) => {
+        const lng = Number(resource.longitude);
+        const lat = Number(resource.latitude);
+        if (isNaN(lng) || isNaN(lat)) return;
+
+        const feature = new Feature({
+          geometry: new Point(fromLonLat([lng, lat])),
+          data: resource,
+        });
+
+        feature.setId(resource.id);
+        feature.setStyle(
+          this.createResourceStyle(
+            resource.resourceStatus,
+            resource.typeCode,
+            resource.resourceName,
+          ),
+        );
+
+        this.resourceSource!.addFeature(feature);
+        validResources.push(resource);
       });
 
-      feature.setId(resource.id);
-      feature.setStyle(
-        this.createResourceStyle(resource.resourceStatus, resource.resourceName)
-      );
+      if (validResources.length > 0) {
+        this.fitToResources(validResources);
+      }
+    }
+  }
 
-      this.resourceSource!.addFeature(feature);
-    });
+  /**
+   * 自动缩放到资源点范围
+   */
+  private fitToResources(resources: Resource[]): void {
+    if (!this.map || resources.length === 0) return;
+
+    const extent = resources.reduce<[number, number, number, number]>(
+      (acc: [number, number, number, number], resource: Resource) => {
+        const lng = Number(resource.longitude);
+        const lat = Number(resource.latitude);
+        if (isNaN(lng) || isNaN(lat)) return acc;
+
+        const coord = fromLonLat([lng, lat]);
+        return [
+          Math.min(acc[0], coord[0]),
+          Math.min(acc[1], coord[1]),
+          Math.max(acc[2], coord[0]),
+          Math.max(acc[3], coord[1]),
+        ] as [number, number, number, number];
+      },
+      [Infinity, Infinity, -Infinity, -Infinity],
+    );
+
+    const view = this.map.getView();
+    if (view) {
+      view.fit(extent, {
+        padding: [50, 50, 50, 50],
+        duration: 1000,
+        minResolution: view.getMinResolution(),
+      });
+    }
   }
 
   /**
@@ -385,22 +946,42 @@ export class MapService {
     resourceId: string,
     lng: number,
     lat: number,
-    status?: ResourceStatus
+    status?: ResourceStatus,
   ): void {
-    if (!this.resourceSource) return;
+    if (this.useWebGL) {
+      if (!this.webglResourceSource) return;
+      const feature = this.webglResourceSource.getFeatureById(resourceId);
+      if (feature) {
+        const geometry = feature.getGeometry();
+        if (geometry instanceof Point) {
+          geometry.setCoordinates(fromLonLat([lng, lat]));
+        }
 
-    const feature = this.resourceSource.getFeatureById(resourceId);
-    if (feature) {
-      const geometry = feature.getGeometry();
-      if (geometry instanceof Point) {
-        geometry.setCoordinates(fromLonLat([lng, lat]));
+        if (status) {
+          feature.set("resourceStatus", status);
+        }
       }
+    } else {
+      if (!this.resourceSource) return;
+      const feature = this.resourceSource.getFeatureById(resourceId);
+      if (feature) {
+        const geometry = feature.getGeometry();
+        if (geometry instanceof Point) {
+          geometry.setCoordinates(fromLonLat([lng, lat]));
+        }
 
-      if (status) {
-        const data = feature.get('data') as Resource;
-        if (data) {
-          data.resourceStatus = status;
-          feature.setStyle(this.createResourceStyle(status, data.resourceName));
+        if (status) {
+          const data = feature.get("data") as Resource;
+          if (data) {
+            data.resourceStatus = status;
+            feature.setStyle(
+              this.createResourceStyle(
+                status,
+                data.typeCode,
+                data.resourceName,
+              ),
+            );
+          }
         }
       }
     }
@@ -410,8 +991,10 @@ export class MapService {
    * 清除所有资源点位
    */
   public clearResources(): void {
-    if (this.resourceSource) {
-      this.resourceSource.clear();
+    if (this.useWebGL) {
+      this.webglResourceSource?.clear();
+    } else {
+      this.resourceSource?.clear();
     }
   }
 
@@ -441,11 +1024,15 @@ export class MapService {
   public drawIsochrones(isochrones: any[]): void {
     if (!this.analysisSource) return;
 
-    const colors = ['#52c41a', '#faad14', '#ff4d4f'];
+    const colors = ["#52c41a", "#faad14", "#ff4d4f"];
 
     isochrones.forEach((iso, index) => {
+      const polygon = Array.isArray(iso.polygon[0])
+        ? iso.polygon
+        : [iso.polygon];
+
       const feature = new Feature({
-        geometry: new Polygon(iso.polygon),
+        geometry: new Polygon(polygon),
         data: iso,
       });
 
@@ -456,9 +1043,11 @@ export class MapService {
             width: 2,
           }),
           fill: new Fill({
-            color: colors[index % colors.length].replace(')', ', 0.15)').replace('rgb', 'rgba'),
+            color: colors[index % colors.length]
+              .replace(")", ", 0.15)")
+              .replace("rgb", "rgba"),
           }),
-        })
+        }),
       );
 
       this.analysisSource?.addFeature(feature);
@@ -471,7 +1060,7 @@ export class MapService {
   public drawBuffers(buffers: any[]): void {
     if (!this.analysisSource) return;
 
-    const colors = ['#1890ff', '#722ed1', '#eb2f96'];
+    const colors = ["#1890ff", "#722ed1", "#eb2f96"];
 
     buffers.forEach((buffer, index) => {
       const feature = new Feature({
@@ -486,9 +1075,11 @@ export class MapService {
             width: 2,
           }),
           fill: new Fill({
-            color: colors[index % colors.length].replace(')', ', 0.15)').replace('rgb', 'rgba'),
+            color: colors[index % colors.length]
+              .replace(")", ", 0.15)")
+              .replace("rgb", "rgba"),
           }),
-        })
+        }),
       );
 
       this.analysisSource?.addFeature(feature);
@@ -498,7 +1089,11 @@ export class MapService {
   /**
    * 绘制距离线
    */
-  public drawDistance(from: [number, number], to: [number, number], distance: number): void {
+  public drawDistance(
+    from: [number, number],
+    to: [number, number],
+    distance: number,
+  ): void {
     if (!this.analysisSource) return;
 
     const feature = new Feature({
@@ -509,10 +1104,10 @@ export class MapService {
     feature.setStyle(
       new Style({
         stroke: new Stroke({
-          color: '#ff4d4f',
+          color: "#ff4d4f",
           width: 3,
         }),
-      })
+      }),
     );
 
     this.analysisSource.addFeature(feature);
@@ -525,10 +1120,10 @@ export class MapService {
       new Style({
         image: new Circle({
           radius: 6,
-          fill: new Fill({ color: '#52c41a' }),
-          stroke: new Stroke({ color: '#fff', width: 2 }),
+          fill: new Fill({ color: "#52c41a" }),
+          stroke: new Stroke({ color: "#fff", width: 2 }),
         }),
-      })
+      }),
     );
 
     this.analysisSource.addFeature(startPoint);
@@ -541,10 +1136,10 @@ export class MapService {
       new Style({
         image: new Circle({
           radius: 6,
-          fill: new Fill({ color: '#ff4d4f' }),
-          stroke: new Stroke({ color: '#fff', width: 2 }),
+          fill: new Fill({ color: "#ff4d4f" }),
+          stroke: new Stroke({ color: "#fff", width: 2 }),
         }),
-      })
+      }),
     );
 
     this.analysisSource.addFeature(endPoint);
@@ -591,10 +1186,10 @@ export class MapService {
       new Style({
         image: new Circle({
           radius: 8,
-          fill: new Fill({ color: '#52c41a' }),
-          stroke: new Stroke({ color: '#fff', width: 2 }),
+          fill: new Fill({ color: "#52c41a" }),
+          stroke: new Stroke({ color: "#fff", width: 2 }),
         }),
-      })
+      }),
     );
 
     this.trajectorySource?.addFeature(startPoint);
@@ -607,10 +1202,10 @@ export class MapService {
       new Style({
         image: new Circle({
           radius: 8,
-          fill: new Fill({ color: '#ff4d4f' }),
-          stroke: new Stroke({ color: '#fff', width: 2 }),
+          fill: new Fill({ color: "#ff4d4f" }),
+          stroke: new Stroke({ color: "#fff", width: 2 }),
         }),
-      })
+      }),
     );
 
     this.trajectorySource?.addFeature(endPoint);
@@ -623,7 +1218,7 @@ export class MapService {
     points: { lng: number; lat: number }[],
     speed: number = 1000,
     onProgress?: (index: number) => void,
-    onComplete?: () => void
+    onComplete?: () => void,
   ): void {
     if (!this.trajectorySource) return;
 
@@ -655,10 +1250,10 @@ export class MapService {
         new Style({
           image: new Circle({
             radius: 10,
-            fill: new Fill({ color: '#ff4d4f' }),
-            stroke: new Stroke({ color: '#fff', width: 3 }),
+            fill: new Fill({ color: "#ff4d4f" }),
+            stroke: new Stroke({ color: "#fff", width: 3 }),
           }),
-        })
+        }),
       );
 
       this.trajectorySource?.addFeature(currentPoint);
@@ -683,12 +1278,177 @@ export class MapService {
   }
 
   /**
+   * 多车辆同步轨迹回放
+   */
+  public playMultiTrajectory(
+    trajectories: Array<{
+      resourceId: string;
+      resourceName: string;
+      color: string;
+      points: { lng: number; lat: number; timestamp?: string }[];
+    }>,
+    speed: number = 1000,
+    onProgress?: (timestamp: string, progress: number) => void,
+    onComplete?: () => void,
+  ): void {
+    if (!this.map) return;
+
+    this.stopMultiTrajectoryPlayback();
+
+    const allTimestamps = trajectories.flatMap((t) =>
+      t.points
+        .map((p) => p.timestamp)
+        .filter((ts): ts is string => ts !== undefined),
+    );
+    const uniqueTimestamps = [...new Set(allTimestamps)].sort();
+    const totalFrames = uniqueTimestamps.length;
+
+    const colorMap = trajectories.reduce(
+      (acc, t) => {
+        acc[t.resourceId] = t.color;
+        return acc;
+      },
+      {} as Record<string, string>,
+    );
+
+    let frameIndex = 0;
+
+    const animate = () => {
+      if (frameIndex >= totalFrames) {
+        if (onComplete) onComplete();
+        return;
+      }
+
+      const currentTimestamp = uniqueTimestamps[frameIndex];
+
+      trajectories.forEach((trajectory) => {
+        const source = this.multiTrajectorySources[trajectory.resourceId];
+        if (!source) return;
+
+        const currentPoint = trajectory.points.find(
+          (p) => p.timestamp === currentTimestamp,
+        );
+        if (!currentPoint) return;
+
+        const index = trajectory.points.indexOf(currentPoint);
+        const coordinates = trajectory.points
+          .slice(0, index + 1)
+          .map((p) => fromLonLat([p.lng, p.lat]));
+
+        source.clear();
+
+        const lineFeature = new Feature({
+          geometry: new LineString(coordinates),
+          data: {
+            resourceId: trajectory.resourceId,
+            resourceName: trajectory.resourceName,
+          },
+        });
+
+        lineFeature.setStyle(
+          new Style({
+            stroke: new Stroke({
+              color: colorMap[trajectory.resourceId],
+              width: 3,
+            }),
+          }),
+        );
+
+        source.addFeature(lineFeature);
+
+        const pointFeature = new Feature({
+          geometry: new Point(coordinates[coordinates.length - 1]),
+          data: {
+            resourceId: trajectory.resourceId,
+            resourceName: trajectory.resourceName,
+          },
+        });
+
+        pointFeature.setStyle(
+          new Style({
+            image: new Circle({
+              radius: 8,
+              fill: new Fill({ color: colorMap[trajectory.resourceId] }),
+              stroke: new Stroke({ color: "#fff", width: 2 }),
+            }),
+          }),
+        );
+
+        source.addFeature(pointFeature);
+      });
+
+      if (onProgress) {
+        onProgress(currentTimestamp, (frameIndex / totalFrames) * 100);
+      }
+
+      frameIndex++;
+      this.multiPlaybackAnimationId = window.setTimeout(animate, speed);
+    };
+
+    animate();
+  }
+
+  /**
+   * 停止多车辆轨迹回放
+   */
+  public stopMultiTrajectoryPlayback(): void {
+    if (this.multiPlaybackAnimationId !== null) {
+      window.clearTimeout(this.multiPlaybackAnimationId);
+      this.multiPlaybackAnimationId = null;
+    }
+  }
+
+  /**
+   * 初始化多车辆轨迹图层
+   */
+  public initMultiTrajectoryLayers(
+    trajectories: Array<{
+      resourceId: string;
+      resourceName: string;
+      color: string;
+    }>,
+  ): void {
+    if (!this.map) return;
+
+    this.clearMultiTrajectoryLayers();
+
+    trajectories.forEach((trajectory) => {
+      const source = new VectorSource<Feature>();
+      const layer = new VectorLayer({
+        source,
+        zIndex: 100,
+      });
+
+      this.multiTrajectorySources[trajectory.resourceId] = source;
+      this.multiTrajectoryLayers[trajectory.resourceId] = layer;
+      this.map!.addLayer(layer);
+    });
+  }
+
+  /**
+   * 清除多车辆轨迹图层
+   */
+  public clearMultiTrajectoryLayers(): void {
+    this.stopMultiTrajectoryPlayback();
+
+    Object.values(this.multiTrajectoryLayers).forEach((layer) => {
+      this.map?.removeLayer(layer);
+      layer.getSource()?.clear();
+    });
+
+    this.multiTrajectoryLayers = {};
+    this.multiTrajectorySources = {};
+  }
+
+  /**
    * 绘制热力图（使用点图层模拟）
    */
-  public drawHeatmap(points: { lng: number; lat: number; weight: number }[]): void {
-    if (!this.trajectorySource) return;
+  public drawHeatmap(
+    points: { lng: number; lat: number; weight: number }[],
+  ): void {
+    if (!this.heatmapSource) return;
 
-    this.trajectorySource.clear();
+    this.heatmapSource.clear();
 
     const weights = points.map((p) => p.weight);
     const maxWeight = Math.max(...weights, 1);
@@ -711,11 +1471,70 @@ export class MapService {
               color: `rgba(255, 77, 79, ${opacity})`,
             }),
           }),
-        })
+        }),
       );
 
-      this.trajectorySource?.addFeature(feature);
+      this.heatmapSource?.addFeature(feature);
     });
+  }
+
+  /**
+   * 时间动态热力图
+   */
+  private timeHeatmapAnimationId: number | null = null;
+
+  public playTimeHeatmap(
+    timeSeriesData: Array<{
+      timestamp: string;
+      points: { lng: number; lat: number; weight: number }[];
+    }>,
+    speed: number = 1000,
+    onProgress?: (timestamp: string, progress: number) => void,
+    onComplete?: () => void,
+  ): void {
+    if (!this.heatmapSource) return;
+
+    this.stopTimeHeatmap();
+
+    let frameIndex = 0;
+    const totalFrames = timeSeriesData.length;
+
+    const animate = () => {
+      if (frameIndex >= totalFrames) {
+        if (onComplete) onComplete();
+        return;
+      }
+
+      const currentData = timeSeriesData[frameIndex];
+      this.drawHeatmap(currentData.points);
+
+      if (onProgress) {
+        onProgress(currentData.timestamp, (frameIndex / totalFrames) * 100);
+      }
+
+      frameIndex++;
+      this.timeHeatmapAnimationId = window.setTimeout(animate, speed);
+    };
+
+    animate();
+  }
+
+  /**
+   * 停止时间动态热力图
+   */
+  public stopTimeHeatmap(): void {
+    if (this.timeHeatmapAnimationId !== null) {
+      window.clearTimeout(this.timeHeatmapAnimationId);
+      this.timeHeatmapAnimationId = null;
+    }
+  }
+
+  /**
+   * 清除热力图
+   */
+  public clearHeatmap(): void {
+    this.stopTimeHeatmap();
+    this.heatmapSource?.clear();
   }
 
   /**
@@ -723,7 +1542,11 @@ export class MapService {
    */
   public clearTrajectory(): void {
     this.stopTrajectoryPlayback();
+    this.stopMultiTrajectoryPlayback();
     this.trajectorySource?.clear();
+    Object.values(this.multiTrajectorySources).forEach((source) =>
+      source.clear(),
+    );
   }
 
   /**
@@ -734,13 +1557,98 @@ export class MapService {
   }
 
   /**
+   * 清除分析图层
+   */
+  public clearAnalysisLayer(): void {
+    this.analysisSource?.clear();
+  }
+
+  private drawingInteraction: any = null;
+  private currentDrawingFeature: any = null;
+
+  /**
+   * 开始绘制
+   */
+  public startDrawing(type: "point" | "line" | "polygon"): void {
+    if (!this.map) return;
+
+    this.disableDrawing();
+
+    this.drawingInteraction = new Draw({
+      source: this.analysisSource!,
+      type:
+        type === "point" ? "Point" : type === "line" ? "LineString" : "Polygon",
+    });
+
+    this.drawingInteraction.on("drawend", (evt: any) => {
+      this.currentDrawingFeature = evt.feature;
+      this.disableDrawing();
+    });
+
+    this.map.addInteraction(this.drawingInteraction);
+  }
+
+  /**
+   * 禁用绘制
+   */
+  public disableDrawing(): void {
+    if (this.drawingInteraction && this.map) {
+      this.map.removeInteraction(this.drawingInteraction);
+      this.drawingInteraction = null;
+    }
+  }
+
+  /**
+   * 获取当前绘制
+   */
+  public getCurrentDrawing(): {
+    type: "point" | "line" | "polygon";
+    coordinates: any[];
+  } | null {
+    if (!this.currentDrawingFeature) return null;
+
+    const geometry = this.currentDrawingFeature.getGeometry();
+    if (!geometry) return null;
+
+    let type: "point" | "line" | "polygon" = "point";
+    let coordinates: any[] = [];
+
+    if (geometry.getType() === "Point") {
+      type = "point";
+      coordinates = toLonLat(geometry.getCoordinates());
+    } else if (geometry.getType() === "LineString") {
+      type = "line";
+      coordinates = geometry.getCoordinates().map((c: any) => toLonLat(c));
+    } else if (geometry.getType() === "Polygon") {
+      type = "polygon";
+      coordinates = geometry.getCoordinates()[0].map((c: any) => toLonLat(c));
+    }
+
+    return { type, coordinates };
+  }
+
+  /**
+   * 清除绘制
+   */
+  public clearDrawing(): void {
+    this.currentDrawingFeature = null;
+    this.analysisSource?.clear();
+  }
+
+  /**
    * 启用聚合模式
    */
   public enableCluster(): void {
     if (!this.map || !this.resourceLayer || !this.clusterLayer) return;
+    if (this.useCluster) return; // 已经是聚合模式
 
-    this.map.removeLayer(this.resourceLayer);
-    this.map.addLayer(this.clusterLayer);
+    const layers = this.map.getLayers();
+    if (layers.getArray().includes(this.resourceLayer)) {
+      this.map.removeLayer(this.resourceLayer);
+    }
+    if (!layers.getArray().includes(this.clusterLayer)) {
+      this.map.addLayer(this.clusterLayer);
+    }
     this.useCluster = true;
   }
 
@@ -749,9 +1657,15 @@ export class MapService {
    */
   public disableCluster(): void {
     if (!this.map || !this.resourceLayer || !this.clusterLayer) return;
+    if (!this.useCluster) return; // 已经是非聚合模式
 
-    this.map.removeLayer(this.clusterLayer);
-    this.map.addLayer(this.resourceLayer);
+    const layers = this.map.getLayers();
+    if (layers.getArray().includes(this.clusterLayer)) {
+      this.map.removeLayer(this.clusterLayer);
+    }
+    if (!layers.getArray().includes(this.resourceLayer)) {
+      this.map.addLayer(this.resourceLayer);
+    }
     this.useCluster = false;
   }
 
@@ -822,7 +1736,7 @@ export class MapService {
   public onResourceClick(callback: (feature: Feature) => void): void {
     if (!this.map) return;
 
-    this.map.on('singleclick', (evt) => {
+    this.map.on("singleclick", (evt) => {
       if (!this.map) return;
 
       let clickedFeature: any = null;
@@ -837,8 +1751,10 @@ export class MapService {
 
       if (isResourceLayer && clickedFeature) {
         if (this.useCluster) {
-          const features: Feature[] | undefined = clickedFeature.get('features');
+          const features: Feature[] | undefined =
+            clickedFeature.get("features");
           if (features && features.length > 1) {
+            // 点击聚合点，放大地图
             const geometry = clickedFeature.getGeometry();
             if (geometry) {
               const extent = geometry.getExtent();
@@ -847,12 +1763,200 @@ export class MapService {
             }
             return;
           }
+          // 聚合数量为1时，获取原始feature的数据
+          if (features && features.length === 1) {
+            const originalFeature = features[0];
+            const data = originalFeature.get("data") as Resource;
+            if (data) {
+              // 创建一个包含正确id的feature返回给回调
+              callback(originalFeature);
+              return;
+            }
+          }
         }
         callback(clickedFeature);
       } else {
         this.hidePopup();
       }
     });
+  }
+
+  /**
+   * 高亮追踪资源
+   * 在地图上显示脉冲动画效果的圆圈，并放大地图到合适级别
+   */
+  public highlightTrackingResource(resource: Resource): void {
+    if (!this.map || !this.trackingSource) return;
+
+    // 清除之前的追踪效果
+    this.clearTracking();
+
+    const lng = Number(resource.longitude);
+    const lat = Number(resource.latitude);
+    if (isNaN(lng) || isNaN(lat)) return;
+
+    // 创建多层追踪标记以增强视觉效果
+    // 外层脉冲圈
+    const outerRing = new Feature({
+      geometry: new Point(fromLonLat([lng, lat])),
+    });
+    outerRing.setId("tracking-outer-" + resource.id);
+
+    // 内层实心圈
+    const innerRing = new Feature({
+      geometry: new Point(fromLonLat([lng, lat])),
+      data: resource,
+    });
+    innerRing.setId("tracking-inner-" + resource.id);
+
+    // 中心点
+    const centerPoint = new Feature({
+      geometry: new Point(fromLonLat([lng, lat])),
+    });
+    centerPoint.setId("tracking-center-" + resource.id);
+
+    // 文字标签
+    const labelFeature = new Feature({
+      geometry: new Point(fromLonLat([lng, lat])),
+    });
+    labelFeature.setId("tracking-label-" + resource.id);
+
+    this.trackingSource.addFeatures([
+      outerRing,
+      innerRing,
+      centerPoint,
+      labelFeature,
+    ]);
+
+    // 脉冲动画
+    let pulseScale = 0;
+    let growing = true;
+
+    const updateStyles = () => {
+      // 外层脉冲圈 - 大范围扩散
+      outerRing.setStyle(
+        new Style({
+          image: new Circle({
+            radius: 30 + pulseScale * 40,
+            fill: new Fill({
+              color: `rgba(24, 144, 255, ${0.3 - pulseScale * 0.25})`,
+            }),
+            stroke: new Stroke({
+              color: `rgba(24, 144, 255, ${0.8 - pulseScale * 0.6})`,
+              width: 3,
+            }),
+          }),
+        }),
+      );
+
+      // 内层圈 - 中等大小
+      innerRing.setStyle(
+        new Style({
+          image: new Circle({
+            radius: 20,
+            fill: new Fill({ color: "rgba(24, 144, 255, 0.4)" }),
+            stroke: new Stroke({ color: "#1890ff", width: 4 }),
+          }),
+        }),
+      );
+
+      // 中心点 - 小而亮
+      centerPoint.setStyle(
+        new Style({
+          image: new Circle({
+            radius: 10,
+            fill: new Fill({ color: "#1890ff" }),
+            stroke: new Stroke({ color: "#fff", width: 3 }),
+          }),
+        }),
+      );
+
+      // 标签
+      labelFeature.setStyle(
+        new Style({
+          text: new Text({
+            text: `📍 ${resource.resourceName || "追踪中..."}`,
+            font: "bold 16px sans-serif",
+            fill: new Fill({ color: "#1890ff" }),
+            stroke: new Stroke({ color: "#fff", width: 4 }),
+            offsetY: -50,
+            backgroundFill: new Fill({ color: "rgba(255, 255, 255, 0.9)" }),
+            backgroundStroke: new Stroke({ color: "#1890ff", width: 2 }),
+            padding: [5, 8, 5, 8],
+          }),
+        }),
+      );
+    };
+
+    updateStyles();
+
+    this.trackingAnimationId = window.setInterval(() => {
+      if (growing) {
+        pulseScale += 0.03;
+        if (pulseScale >= 1) {
+          growing = false;
+        }
+      } else {
+        pulseScale -= 0.03;
+        if (pulseScale <= 0) {
+          growing = true;
+        }
+      }
+      updateStyles();
+    }, 40);
+
+    // 先禁用聚合模式，确保资源点单独显示
+    if (this.useCluster) {
+      this.disableCluster();
+    }
+
+    // 将视图移动到资源位置，使用较高的缩放级别
+    const view = this.map.getView();
+    const targetZoom = 16; // 足够高的缩放级别，避免聚合
+
+    view?.animate({
+      center: fromLonLat([lng, lat]),
+      zoom: targetZoom,
+      duration: 800,
+    });
+  }
+
+  /**
+   * 清除追踪效果
+   */
+  public clearTracking(): void {
+    if (this.trackingAnimationId !== null) {
+      window.clearInterval(this.trackingAnimationId);
+      this.trackingAnimationId = null;
+    }
+    if (this.trackingSource) {
+      this.trackingSource.clear();
+    }
+  }
+
+  /**
+   * 更新追踪资源位置
+   */
+  public updateTrackingPosition(lng: number, lat: number): void {
+    if (!this.trackingSource) return;
+
+    const features = this.trackingSource.getFeatures();
+    if (features.length > 0) {
+      const feature = features[0];
+      const geometry = feature.getGeometry();
+      if (geometry instanceof Point) {
+        geometry.setCoordinates(fromLonLat([lng, lat]));
+      }
+
+      // 更新视图位置
+      if (this.map) {
+        const view = this.map.getView();
+        view?.animate({
+          center: fromLonLat([lng, lat]),
+          duration: 500,
+        });
+      }
+    }
   }
 }
 

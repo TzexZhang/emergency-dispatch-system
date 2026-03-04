@@ -428,7 +428,7 @@ export class AuthController {
   private generateToken(user: any): string {
     const payload = {
       userId: user.id,
-      username: user.username,
+      userName: user.username,
       role: user.role,
       departmentId: user.department_id,
     };

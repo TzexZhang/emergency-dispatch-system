@@ -1,0 +1,81 @@
+/**
+ * 事件地图页面样式
+ */
+
+.incident-map-page {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  .filter-card {
+    flex-shrink: 0;
+
+    .filter-label {
+      color: #595959;
+      font-size: 13px;
+    }
+  }
+
+  .stats-row {
+    display: flex;
+    gap: 12px;
+    flex-shrink: 0;
+
+    .stat-card {
+      flex: 1;
+      background: #fafafa;
+
+      .stat-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+
+        .stat-value {
+          font-size: 24px;
+          font-weight: 600;
+          color: #1890ff;
+        }
+
+        .stat-label {
+          font-size: 12px;
+          color: #8c8c8c;
+        }
+      }
+
+      &.pending .stat-value {
+        color: #faad14;
+      }
+
+      &.processing .stat-value {
+        color: #1890ff;
+      }
+
+      &.resolved .stat-value {
+        color: #52c41a;
+      }
+
+      &.closed .stat-value {
+        color: #8c8c8c;
+      }
+    }
+  }
+
+  .map-wrapper {
+    flex: 1;
+    min-height: 0;
+    background: #f0f2f5;
+    border-radius: 8px;
+    overflow: hidden;
+    position: relative;
+  }
+}
+
+.incident-map-loading {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}

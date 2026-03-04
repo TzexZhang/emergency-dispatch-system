@@ -39,6 +39,12 @@ router.use(authMiddleware);
 router.get('/', incidentController.getList);
 
 /**
+ * GET /api/v1/incident/stats
+ * 获取事件统计数据
+ */
+router.get('/stats', incidentController.getStats);
+
+/**
  * GET /api/v1/incident/:id
  * 获取事件详情
  */

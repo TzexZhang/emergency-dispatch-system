@@ -1,0 +1,76 @@
+.geocoder-search {
+  position: relative;
+  width: 100%;
+
+  .geocoder-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: 300px;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid #d9d9d9;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    margin-top: 4px;
+  }
+
+  .geocoder-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 16px;
+    color: #666;
+  }
+
+  .geocoder-list {
+    list-style: none;
+    margin: 0;
+    padding: 4px 0;
+  }
+
+  .geocoder-item {
+    display: flex;
+    align-items: flex-start;
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+
+    &:hover {
+      background-color: #f5f5f5;
+    }
+
+    &:not(:last-child) {
+      border-bottom: 1px solid #f0f0f0;
+    }
+  }
+
+  .geocoder-icon {
+    color: #1890ff;
+    font-size: 16px;
+    margin-right: 8px;
+    margin-top: 2px;
+    flex-shrink: 0;
+  }
+
+  .geocoder-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .geocoder-name {
+    font-size: 14px;
+    color: #333;
+    line-height: 1.5;
+    word-break: break-all;
+  }
+
+  .geocoder-coords {
+    font-size: 12px;
+    color: #999;
+    margin-top: 4px;
+  }
+}

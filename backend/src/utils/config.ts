@@ -139,8 +139,8 @@ const config: Config = {
     url: process.env.APP_URL || 'http://localhost:8000',
     name: process.env.APP_NAME || '城市智慧应急协同调度平台',
     frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
-    rateLimitWindowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000', 10),
-    rateLimitMaxRequests: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100', 10),
+    rateLimitWindowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000', 10), // 1分钟
+    rateLimitMaxRequests: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '500', 10), // 开发环境增加到500
   },
 
   // ================== 数据库配置 ==================

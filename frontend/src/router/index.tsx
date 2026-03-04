@@ -15,7 +15,7 @@
 import { lazy, Suspense } from 'react';
 import { Navigate, RouteObject, useRoutes, useLocation } from 'react-router-dom';
 import { Spin } from 'antd';
-import { isAuthenticated } from '@/store/userStore';
+import { useUserStore, useHydration } from '@/store/userStore';
 import MainLayout from '@/layouts/MainLayout';
 
 // 懒加载页面组件
@@ -26,6 +26,7 @@ const Profile = lazy(() => import('@pages/Profile'));
 
 // 管理页面
 const IncidentManagement = lazy(() => import('@pages/Incident/Management'));
+const IncidentMap = lazy(() => import('@pages/Incident/IncidentMap'));
 const DispatchManagement = lazy(() => import('@pages/Dispatch/Management'));
 const PlottingManagement = lazy(() => import('@pages/Plotting/Management'));
 const PlaybackManagement = lazy(() => import('@pages/Playback/Management'));
@@ -84,6 +85,10 @@ const protectedRoutes: RouteObject[] = [
       {
         path: 'incident/management',
         element: <IncidentManagement />,
+      },
+      {
+        path: 'incident/map',
+        element: <IncidentMap />,
       },
       // 调度任务
       {
@@ -148,20 +153,26 @@ const LoadingFallback = () => (
  */
 const RouteGuard = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
-  const authenticated = isAuthenticated();
+  const hydrated = useHydration();
+  const isAuthenticated = useUserStore((state) => state.isAuthenticated);
+
+  // 等待 hydration 完成
+  if (!hydrated) {
+    return <LoadingFallback />;
+  }
 
   // 公共路由直接放行
   const publicPaths = ['/login', '/register'];
   if (publicPaths.includes(location.pathname)) {
     // 已登录用户访问登录/注册页，重定向到首页
-    if (authenticated) {
+    if (isAuthenticated) {
       return <Navigate to="/dashboard" replace />;
     }
     return <>{children}</>;
   }
 
   // 受保护路由需要认证
-  if (!authenticated) {
+  if (!isAuthenticated) {
     // 保存当前路径，登录后可以跳转回来
     return <Navigate to="/login" state={{ from: location }} replace />;
   }

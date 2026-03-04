@@ -31,18 +31,33 @@ export class SpatialController {
    */
   public isochrone = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { lng, lat, minutes = [5, 10, 15], profile = 'car' } = req.body;
+      const { lng, lat, minutes, profile = 'car' } = req.body;
 
       // 参数验证
       if (!lng || !lat) {
         throw new ValidationError('缺少坐标参数');
       }
 
-      logger.info(`计算等时圈: ${lng}, ${lat}, ${minutes.join(',')}分钟`);
+      // 处理 minutes 参数，支持字符串和数组两种格式
+      let minutesArray: number[];
+      if (typeof minutes === 'string') {
+        minutesArray = minutes.split(',').map(m => parseInt(m.trim())).filter(m => !isNaN(m));
+      } else if (Array.isArray(minutes)) {
+        minutesArray = minutes;
+      } else {
+        minutesArray = [5, 10, 15];
+      }
+
+      // 如果为空，使用默认值
+      if (minutesArray.length === 0) {
+        minutesArray = [5, 10, 15];
+      }
+
+      logger.info(`计算等时圈: ${lng}, ${lat}, ${minutesArray.join(',')}分钟`);
 
       // 并发调用GraphHopper API计算多个等时圈
       const isochrones = await Promise.all(
-        minutes.map(async (minute: number) => {
+        minutesArray.map(async (minute: number) => {
           try {
             const response = await axios.post(
               `${config.externalServices.graphhopper.url}/isochrone`,
@@ -56,12 +71,14 @@ export class SpatialController {
               }
             );
 
+            const polygon = response.data.polygons?.[0] || [];
+
             return {
               minute,
-              polygon: response.data.polygons,
+              polygon: polygon,
               properties: {
-                area: response.data.polygons[0]
-                  ? turf.area(turf.polygon([response.data.polygons[0]]))
+                area: polygon.length > 0
+                  ? turf.area(turf.polygon([polygon]))
                   : 0,
               },
             };
