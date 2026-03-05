@@ -35,6 +35,8 @@ const MapContainer: React.FC<MapContainerProps> = ({
   const prevUseClusterRef = useRef(useCluster);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const initAttemptedRef = useRef(false);
+  const prevResourcesRef = useRef<Resource[]>([]);
+  const isMapReadyRef = useRef(false);
 
   // 地图初始化 - 只执行一次
   useEffect(() => {
@@ -82,6 +84,7 @@ const MapContainer: React.FC<MapContainerProps> = ({
         useWebGL,
       );
       prevUseClusterRef.current = useCluster;
+      isMapReadyRef.current = true;
 
       // 延迟触发尺寸更新，确保瓦片加载
       setTimeout(() => {
@@ -108,6 +111,7 @@ const MapContainer: React.FC<MapContainerProps> = ({
         resizeObserverRef.current.disconnect();
         resizeObserverRef.current = null;
       }
+      isMapReadyRef.current = false;
       mapService.clearResources();
       mapService.destroy();
       initAttemptedRef.current = false;
@@ -145,16 +149,34 @@ const MapContainer: React.FC<MapContainerProps> = ({
     }
   }, [useCluster]);
 
-  // 更新资源点位 - 确保地图已初始化后再更新
+  // 更新资源点位 - 使用引用比较避免重复更新
   useEffect(() => {
-    // 使用 onMapReady 确保地图已初始化完成后再更新资源
-    mapService.onMapReady(() => {
+    // 检查资源是否真的发生了变化
+    const prevResources = prevResourcesRef.current;
+    const hasChanged =
+      resources.length !== prevResources.length ||
+      resources.some((r, i) => r.id !== prevResources[i]?.id);
+
+    if (!hasChanged) return;
+
+    // 更新引用
+    prevResourcesRef.current = resources;
+
+    // 定义更新函数
+    const updateMapResources = () => {
       if (resources.length > 0) {
         mapService.updateResources(resources);
       } else {
         mapService.clearResources();
       }
-    }, 10000); // 最多等待10秒
+    };
+
+    // 如果地图已就绪，直接更新；否则等待就绪
+    if (isMapReadyRef.current && mapService.isMapReady()) {
+      updateMapResources();
+    } else {
+      mapService.onMapReady(updateMapResources, 10000);
+    }
   }, [resources]);
 
   return (

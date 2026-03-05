@@ -40,7 +40,6 @@ import {
   ClockCircleOutlined,
   SyncOutlined,
   UnorderedListOutlined,
-  AppstoreOutlined,
 } from "@ant-design/icons";
 import MapContainer from "@components/Map/MapContainer";
 import { mapService } from "@services/map.service";
@@ -70,7 +69,6 @@ const Dashboard: React.FC = () => {
   const [resources, setResources] = useState<Resource[]>([]);
   const [incidents, setIncidents] = useState<any[]>([]);
   const [showResourceList, setShowResourceList] = useState(false);
-  const [useClusterMode, setUseClusterMode] = useState(true);
   const [activeTab, setActiveTab] = useState<"map" | "incidents">("map");
   const [selectedResource, setSelectedResource] = useState<Resource | null>(
     null,
@@ -487,17 +485,8 @@ const Dashboard: React.FC = () => {
                       top: "16px",
                       right: "16px",
                       zIndex: 1000,
-                      display: "flex",
-                      gap: "8px",
                     }}
                   >
-                    <Button
-                      type={useClusterMode ? "primary" : "default"}
-                      icon={<AppstoreOutlined />}
-                      onClick={() => setUseClusterMode(!useClusterMode)}
-                    >
-                      {useClusterMode ? "聚合模式" : "列表模式"}
-                    </Button>
                     <Button
                       type={showResourceList ? "primary" : "default"}
                       icon={<UnorderedListOutlined />}
@@ -506,11 +495,11 @@ const Dashboard: React.FC = () => {
                       资源列表
                     </Button>
                   </div>
-                  {/* 地图组件 - 直接渲染，与事件地图页面保持一致 */}
+                  {/* 地图组件 - 使用聚合模式 */}
                   <MapContainer
-                    key={`dashboard-map-${mapDisplayData.length}`}
+                    key="dashboard-map"
                     resources={mapDisplayData}
-                    useCluster={useClusterMode}
+                    useCluster={true}
                     onResourceClick={handleResourceClick}
                   />
                   {/* 加载状态覆盖层 */}

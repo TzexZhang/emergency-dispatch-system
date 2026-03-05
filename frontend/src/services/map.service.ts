@@ -332,8 +332,12 @@ export class MapService {
   private useWebGL: boolean = false;
 
   // ==================== 状态标志 ====================
-  /** 是否已完成首次资源缩放（避免每次更新都重新缩放） */
-  private hasFittedToResources: boolean = false;
+
+  // ==================== 样式缓存 ====================
+  /** 资源样式缓存，key 为 `${status}_${typeCode}_${label}` */
+  private resourceStyleCache: Map<string, Style> = new Map();
+  /** 聚合样式缓存，key 为聚合数量 */
+  private clusterStyleCache: Map<number, Style> = new Map();
 
   /**
    * 初始化地图
@@ -362,6 +366,8 @@ export class MapService {
 
     this.baseLayer = new TileLayer({
       source: tileSource,
+      zIndex: 0,
+      preload: 2, // 预加载2个级别的瓦片
     });
 
     this.resourceSource = new VectorSource<Feature>();
@@ -427,9 +433,15 @@ export class MapService {
           }
         }
 
-        // 聚合数量大于1时，显示聚合样式
+        // 聚合数量大于1时，使用缓存的聚合样式
+        const cachedClusterStyle = this.clusterStyleCache.get(size);
+        if (cachedClusterStyle) {
+          return cachedClusterStyle;
+        }
+
+        // 创建新的聚合样式并缓存
         const radius = 15 + Math.min(size * 2, 20);
-        return new Style({
+        const style = new Style({
           image: new Circle({
             radius,
             fill: new Fill({
@@ -443,6 +455,19 @@ export class MapService {
             fill: new Fill({ color: "#fff" }),
           }),
         });
+
+        // 存入缓存
+        this.clusterStyleCache.set(size, style);
+
+        // 限制缓存大小
+        if (this.clusterStyleCache.size > 50) {
+          const firstKey = this.clusterStyleCache.keys().next().value;
+          if (firstKey) {
+            this.clusterStyleCache.delete(firstKey);
+          }
+        }
+
+        return style;
       },
     });
 
@@ -807,7 +832,9 @@ export class MapService {
     this.multiTrajectorySources = {};
     this.useCluster = false;
     this.useWebGL = false;
-    this.hasFittedToResources = false;
+    // 清理样式缓存
+    this.resourceStyleCache.clear();
+    this.clusterStyleCache.clear();
   }
 
   /**
@@ -886,12 +913,22 @@ export class MapService {
   /**
    * 创建资源点样式 - 根据资源类型显示不同图标（国际通用图标）
    * 支持事件类型（以 incident_ 开头的 typeCode）
+   * 使用缓存避免重复创建样式对象
    */
   private createResourceStyle(
     status: ResourceStatus | IncidentStatus,
     typeCode?: string,
     label?: string,
   ): Style {
+    // 生成缓存键
+    const cacheKey = `${status}_${typeCode || "default"}_${label || ""}`;
+
+    // 检查缓存
+    const cachedStyle = this.resourceStyleCache.get(cacheKey);
+    if (cachedStyle) {
+      return cachedStyle;
+    }
+
     const iconSize = 28;
     let color = "#1890ff";
     let opacity = 1;
@@ -940,7 +977,7 @@ export class MapService {
 
     const iconSrc = svgToDataURL(svgIcon);
 
-    return new Style({
+    const style = new Style({
       image: new Icon({
         src: iconSrc,
         width: iconSize,
@@ -960,6 +997,19 @@ export class MapService {
           })
         : undefined,
     });
+
+    // 存入缓存
+    this.resourceStyleCache.set(cacheKey, style);
+
+    // 限制缓存大小，避免内存泄漏
+    if (this.resourceStyleCache.size > 100) {
+      const firstKey = this.resourceStyleCache.keys().next().value;
+      if (firstKey) {
+        this.resourceStyleCache.delete(firstKey);
+      }
+    }
+
+    return style;
   }
 
   /**
@@ -1005,8 +1055,6 @@ export class MapService {
    * 更新资源点位
    */
   public updateResources(resources: Resource[]): void {
-    console.log("resources", resources);
-
     if (this.useWebGL) {
       if (!this.webglResourceSource) return;
       this.webglResourceSource.clear();
@@ -1052,79 +1100,7 @@ export class MapService {
         this.resourceSource!.addFeature(feature);
         validResources.push(resource);
       });
-
-      // 首次加载资源时自动缩放到合适范围（只执行一次）
-      if (validResources.length > 0 && !this.hasFittedToResources) {
-        this.hasFittedToResources = true;
-        this.fitToResources(validResources);
-      }
     }
-  }
-
-  /**
-   * 自动缩放到资源点范围
-   * @param resources 资源列表
-   * @param delay 延迟执行时间（毫秒），避免与地图初始化冲突
-   */
-  private fitToResources(resources: Resource[], delay: number = 500): void {
-    if (!this.map || resources.length === 0) return;
-
-    // 延迟执行，确保地图完全初始化
-    setTimeout(() => {
-      if (!this.map) return;
-
-      const validCoords: number[][] = [];
-      resources.forEach((resource) => {
-        const lng = Number(resource.longitude);
-        const lat = Number(resource.latitude);
-        if (!isNaN(lng) && !isNaN(lat) && lng !== 0 && lat !== 0) {
-          validCoords.push(fromLonLat([lng, lat]));
-        }
-      });
-
-      // 至少需要一个有效坐标点
-      if (validCoords.length === 0) return;
-
-      let extent: [number, number, number, number];
-
-      if (validCoords.length === 1) {
-        // 单个点时，以该点为中心设置固定缩放级别
-        const view = this.map.getView();
-        if (view) {
-          view.animate({
-            center: validCoords[0],
-            zoom: 15,
-            duration: 500,
-          });
-        }
-        return;
-      }
-
-      // 多个点时计算范围
-      extent = validCoords.reduce(
-        (acc, coord) => [
-          Math.min(acc[0], coord[0]),
-          Math.min(acc[1], coord[1]),
-          Math.max(acc[2], coord[0]),
-          Math.max(acc[3], coord[1]),
-        ],
-        [...validCoords[0], ...validCoords[0]] as [
-          number,
-          number,
-          number,
-          number,
-        ],
-      );
-
-      const view = this.map.getView();
-      if (view) {
-        view.fit(extent, {
-          padding: [50, 50, 50, 50],
-          duration: 800,
-          maxZoom: 16, // 限制最大缩放级别，避免过度缩放
-        });
-      }
-    }, delay);
   }
 
   /**
@@ -1184,8 +1160,6 @@ export class MapService {
     } else {
       this.resourceSource?.clear();
     }
-    // 重置首次缩放标志，允许下次加载资源时重新缩放
-    this.hasFittedToResources = false;
   }
 
   /**
