@@ -587,9 +587,7 @@ const ResourceMonitor: React.FC = () => {
             <div className="map-wrapper">
               <MapContainer
                 key={`resource-monitor-${trackingResource?.id || "list"}-${resources.length}`}
-                resources={
-                  trackingResource ? [trackingResource] : resources
-                }
+                resources={trackingResource ? [trackingResource] : resources}
                 useCluster={!trackingResource}
                 onResourceClick={(resource) => {
                   setSelectedResource(resource);

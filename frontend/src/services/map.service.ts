@@ -15,7 +15,7 @@
  * @author Emergency Dispatch Team
  */
 
-import Map from "ol/Map";
+import OLMap from "ol/Map";
 import View from "ol/View";
 import TileLayer from "ol/layer/Tile";
 import VectorLayer from "ol/layer/Vector";
@@ -255,7 +255,7 @@ const svgToDataURL = (svg: string): string => {
 export class MapService {
   // ==================== 核心地图实例 ====================
   /** OpenLayers 地图实例，管理所有图层和交互 */
-  private map: Map | null = null;
+  private map: OLMap | null = null;
 
   // ==================== 底图图层 ====================
   /** 底图图层，显示 OSM/高德/天地图瓦片 */
@@ -331,6 +331,10 @@ export class MapService {
   /** 是否启用 WebGL 渲染模式 */
   private useWebGL: boolean = false;
 
+  // ==================== 状态标志 ====================
+  /** 是否已完成首次资源缩放（避免每次更新都重新缩放） */
+  private hasFittedToResources: boolean = false;
+
   /**
    * 初始化地图
    *
@@ -343,7 +347,7 @@ export class MapService {
     mapConfig: MapConfig,
     useCluster: boolean = false,
     useWebGL: boolean = false,
-  ): Map {
+  ): OLMap {
     // 如果已存在地图实例，先销毁
     if (this.map) {
       this.destroy();
@@ -364,6 +368,9 @@ export class MapService {
     this.resourceLayer = new VectorLayer({
       source: this.resourceSource,
       zIndex: 10,
+      // 禁用动画和交互时的更新，减少闪烁
+      updateWhileAnimating: false,
+      updateWhileInteracting: false,
     });
 
     this.webglResourceSource = new VectorSource<Feature>();
@@ -400,6 +407,9 @@ export class MapService {
     this.clusterLayer = new VectorLayer({
       source: this.clusterSource,
       zIndex: 10,
+      // 禁用动画和交互时的更新，减少闪烁
+      updateWhileAnimating: false,
+      updateWhileInteracting: false,
       style: (feature) => {
         const features = feature.get("features");
         const size = features?.length || 1;
@@ -419,7 +429,6 @@ export class MapService {
 
         // 聚合数量大于1时，显示聚合样式
         const radius = 15 + Math.min(size * 2, 20);
-
         return new Style({
           image: new Circle({
             radius,
@@ -501,7 +510,7 @@ export class MapService {
       layers.push(this.trackingLayer);
     }
 
-    this.map = new Map({
+    this.map = new OLMap({
       target: mapConfig.target,
       layers,
       view: new View({
@@ -544,7 +553,7 @@ export class MapService {
   /**
    * 获取地图实例
    */
-  public getMap(): Map | null {
+  public getMap(): OLMap | null {
     return this.map;
   }
 
@@ -798,6 +807,7 @@ export class MapService {
     this.multiTrajectorySources = {};
     this.useCluster = false;
     this.useWebGL = false;
+    this.hasFittedToResources = false;
   }
 
   /**
@@ -1043,7 +1053,9 @@ export class MapService {
         validResources.push(resource);
       });
 
-      if (validResources.length > 0) {
+      // 首次加载资源时自动缩放到合适范围（只执行一次）
+      if (validResources.length > 0 && !this.hasFittedToResources) {
+        this.hasFittedToResources = true;
         this.fitToResources(validResources);
       }
     }
@@ -1051,35 +1063,68 @@ export class MapService {
 
   /**
    * 自动缩放到资源点范围
+   * @param resources 资源列表
+   * @param delay 延迟执行时间（毫秒），避免与地图初始化冲突
    */
-  private fitToResources(resources: Resource[]): void {
+  private fitToResources(resources: Resource[], delay: number = 500): void {
     if (!this.map || resources.length === 0) return;
 
-    const extent = resources.reduce<[number, number, number, number]>(
-      (acc: [number, number, number, number], resource: Resource) => {
+    // 延迟执行，确保地图完全初始化
+    setTimeout(() => {
+      if (!this.map) return;
+
+      const validCoords: number[][] = [];
+      resources.forEach((resource) => {
         const lng = Number(resource.longitude);
         const lat = Number(resource.latitude);
-        if (isNaN(lng) || isNaN(lat)) return acc;
+        if (!isNaN(lng) && !isNaN(lat) && lng !== 0 && lat !== 0) {
+          validCoords.push(fromLonLat([lng, lat]));
+        }
+      });
 
-        const coord = fromLonLat([lng, lat]);
-        return [
+      // 至少需要一个有效坐标点
+      if (validCoords.length === 0) return;
+
+      let extent: [number, number, number, number];
+
+      if (validCoords.length === 1) {
+        // 单个点时，以该点为中心设置固定缩放级别
+        const view = this.map.getView();
+        if (view) {
+          view.animate({
+            center: validCoords[0],
+            zoom: 15,
+            duration: 500,
+          });
+        }
+        return;
+      }
+
+      // 多个点时计算范围
+      extent = validCoords.reduce(
+        (acc, coord) => [
           Math.min(acc[0], coord[0]),
           Math.min(acc[1], coord[1]),
           Math.max(acc[2], coord[0]),
           Math.max(acc[3], coord[1]),
-        ] as [number, number, number, number];
-      },
-      [Infinity, Infinity, -Infinity, -Infinity],
-    );
+        ],
+        [...validCoords[0], ...validCoords[0]] as [
+          number,
+          number,
+          number,
+          number,
+        ],
+      );
 
-    const view = this.map.getView();
-    if (view) {
-      view.fit(extent, {
-        padding: [50, 50, 50, 50],
-        duration: 1000,
-        minResolution: view.getMinResolution(),
-      });
-    }
+      const view = this.map.getView();
+      if (view) {
+        view.fit(extent, {
+          padding: [50, 50, 50, 50],
+          duration: 800,
+          maxZoom: 16, // 限制最大缩放级别，避免过度缩放
+        });
+      }
+    }, delay);
   }
 
   /**
@@ -1139,6 +1184,8 @@ export class MapService {
     } else {
       this.resourceSource?.clear();
     }
+    // 重置首次缩放标志，允许下次加载资源时重新缩放
+    this.hasFittedToResources = false;
   }
 
   /**

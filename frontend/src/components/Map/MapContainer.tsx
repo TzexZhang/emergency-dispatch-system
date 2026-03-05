@@ -154,7 +154,7 @@ const MapContainer: React.FC<MapContainerProps> = ({
       } else {
         mapService.clearResources();
       }
-    }, 3000); // 最多等待3秒
+    }, 10000); // 最多等待10秒
   }, [resources]);
 
   return (
