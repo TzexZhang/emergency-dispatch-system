@@ -12,7 +12,7 @@
  * @author Emergency Dispatch Team
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { mapService } from "@services/map.service";
 import { config } from "@/config";
 import type { Resource } from "@/types";
@@ -145,13 +145,16 @@ const MapContainer: React.FC<MapContainerProps> = ({
     }
   }, [useCluster]);
 
-  // 更新资源点位 - 篡化后的简洁逻辑
+  // 更新资源点位 - 确保地图已初始化后再更新
   useEffect(() => {
-    if (resources.length > 0) {
-      mapService.updateResources(resources);
-    } else {
-      mapService.clearResources();
-    }
+    // 使用 onMapReady 确保地图已初始化完成后再更新资源
+    mapService.onMapReady(() => {
+      if (resources.length > 0) {
+        mapService.updateResources(resources);
+      } else {
+        mapService.clearResources();
+      }
+    }, 3000); // 最多等待3秒
   }, [resources]);
 
   return (

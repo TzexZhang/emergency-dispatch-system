@@ -79,6 +79,38 @@ const STATUS_CONFIG: Record<
   },
 };
 
+// 资源类型图标配置 - 国际通用标准图标
+const RESOURCE_TYPE_ICONS: Record<
+  string,
+  { icon: React.ReactNode; color: string; label: string }
+> = {
+  ambulance: {
+    icon: <span style={{ fontSize: 16 }}>🚑</span>,
+    color: "#FF0000",
+    label: "救护车",
+  },
+  fire_truck: {
+    icon: <span style={{ fontSize: 16 }}>🚒</span>,
+    color: "#FF6600",
+    label: "消防车",
+  },
+  police_car: {
+    icon: <span style={{ fontSize: 16 }}>🚓</span>,
+    color: "#0000FF",
+    label: "警车",
+  },
+  sensor: {
+    icon: <span style={{ fontSize: 16 }}>📡</span>,
+    color: "#00FF00",
+    label: "传感器",
+  },
+  person: {
+    icon: <span style={{ fontSize: 16 }}>👤</span>,
+    color: "#0066FF",
+    label: "人员",
+  },
+};
+
 /**
  * 资源实时监控页面组件
  */
@@ -124,7 +156,7 @@ const ResourceMonitor: React.FC = () => {
   const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   /**
-   * 获取资源列表
+   * 获取资源列表 - 全量数据用于地图显示
    */
   const fetchResources = useCallback(async () => {
     setLoading(true);
@@ -132,7 +164,7 @@ const ResourceMonitor: React.FC = () => {
       const res = await http.get<{ list: Resource[]; total: number }>(
         "/api/v1/resources",
         {
-          params: { page: 1, pageSize: 1000 },
+          params: { page: 1, pageSize: 50000 }, // 全量数据
         },
       );
 
@@ -360,16 +392,20 @@ const ResourceMonitor: React.FC = () => {
       title: "资源名称",
       dataIndex: "resourceName",
       key: "resourceName",
-      width: 150,
+      width: 180,
       ellipsis: true,
-      render: (text: string, record: Resource) => (
-        <Space>
-          {trackingResource?.id === record.id && (
-            <AimOutlined style={{ color: "#1890ff" }} />
-          )}
-          <span>{text}</span>
-        </Space>
-      ),
+      render: (text: string, record: Resource) => {
+        const typeConfig = RESOURCE_TYPE_ICONS[record.typeCode || ""];
+        return (
+          <Space>
+            {trackingResource?.id === record.id && (
+              <AimOutlined style={{ color: "#1890ff" }} />
+            )}
+            {typeConfig?.icon}
+            <span>{text}</span>
+          </Space>
+        );
+      },
     },
     {
       title: "状态",
@@ -390,6 +426,15 @@ const ResourceMonitor: React.FC = () => {
       dataIndex: "typeName",
       key: "typeName",
       width: 100,
+      render: (typeName: string, record: Resource) => {
+        const typeConfig = RESOURCE_TYPE_ICONS[record.typeCode || ""];
+        return (
+          <Space>
+            {typeConfig?.icon}
+            <span>{typeName}</span>
+          </Space>
+        );
+      },
     },
     {
       title: "速度",
@@ -541,9 +586,9 @@ const ResourceMonitor: React.FC = () => {
             </div>
             <div className="map-wrapper">
               <MapContainer
-                key={`resource-monitor-${trackingResource?.id || "list"}-${filteredResources.length}`}
+                key={`resource-monitor-${trackingResource?.id || "list"}-${resources.length}`}
                 resources={
-                  trackingResource ? [trackingResource] : filteredResources
+                  trackingResource ? [trackingResource] : resources
                 }
                 useCluster={!trackingResource}
                 onResourceClick={(resource) => {
@@ -560,7 +605,7 @@ const ResourceMonitor: React.FC = () => {
                 </div>
               )}
               {/* 空数据提示 */}
-              {resources.length === 0 && !loading && (
+              {resources.length === 0 && !loading && !trackingResource && (
                 <div className="map-empty-overlay">
                   <Empty description="暂无资源数据" />
                 </div>

@@ -50,6 +50,7 @@ const INCIDENT_TYPES: { label: string; value: IncidentType }[] = [
   { label: "火灾", value: "fire" },
   { label: "交通事故", value: "traffic" },
   { label: "医疗急救", value: "medical" },
+  { label: "治安事件", value: "police" },
   { label: "公共安全", value: "public_security" },
   { label: "自然灾害", value: "natural_disaster" },
 ];
@@ -110,7 +111,7 @@ const IncidentMap: React.FC = () => {
   const [modalVisible, setModalVisible] = useState(false);
 
   /**
-   * 获取事件列表
+   * 获取事件列表 - 全量数据用于地图显示
    */
   const fetchIncidents = useCallback(async () => {
     setLoading(true);
@@ -118,7 +119,7 @@ const IncidentMap: React.FC = () => {
       const res = await http.get<{ list: IncidentListItem[]; total: number }>(
         "/api/v1/incidents",
         {
-          params: { page: 1, pageSize: 500 },
+          params: { page: 1, pageSize: 50000 }, // 全量数据
         },
       );
       if (res?.data) {
@@ -218,8 +219,9 @@ const IncidentMap: React.FC = () => {
   /**
    * 将事件转换为地图资源格式
    * 注意：typeCode 用于地图服务识别事件类型并显示对应图标
+   * 地图显示全量事件数据，不受筛选条件影响
    */
-  const mapResources = filteredIncidents
+  const mapResources = incidents
     .filter((i) => i.latitude && i.longitude)
     .map((incident) => ({
       id: incident.id,

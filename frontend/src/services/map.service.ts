@@ -253,32 +253,83 @@ const svgToDataURL = (svg: string): string => {
 };
 
 export class MapService {
+  // ==================== 核心地图实例 ====================
+  /** OpenLayers 地图实例，管理所有图层和交互 */
   private map: Map | null = null;
+
+  // ==================== 底图图层 ====================
+  /** 底图图层，显示 OSM/高德/天地图瓦片 */
   public baseLayer: TileLayer<XYZ> | null = null;
+
+  // ==================== 资源图层（普通模式） ====================
+  /** 资源矢量图层，显示资源/事件点位（非聚合、非WebGL模式） */
   public resourceLayer: VectorLayer<any> | null = null;
+  /** 资源数据源，存储资源点位 Feature */
   private resourceSource: VectorSource<Feature> | null = null;
+
+  // ==================== 资源图层（WebGL模式） ====================
+  /** WebGL 资源图层，使用 WebGL 加速渲染大量点位 */
   private webglResourceLayer: WebGLPointsLayer<any> | null = null;
+  /** WebGL 资源数据源 */
   private webglResourceSource: VectorSource<Feature> | null = null;
+
+  // ==================== 资源图层（聚合模式） ====================
+  /** 聚合图层，将相邻点位聚合显示 */
   private clusterLayer: VectorLayer<any> | null = null;
+  /** 聚合数据源，包装 resourceSource 实现聚合效果 */
   private clusterSource: Cluster<Feature> | null = null;
+
+  // ==================== 空间分析图层 ====================
+  /** 分析图层，显示缓冲区、等时圈、距离线等分析结果 */
   private analysisLayer: VectorLayer<any> | null = null;
+  /** 分析数据源 */
   private analysisSource: VectorSource<Feature> | null = null;
+
+  // ==================== 轨迹图层 ====================
+  /** 轨迹图层，显示单条轨迹回放 */
   private trajectoryLayer: VectorLayer<any> | null = null;
+  /** 轨迹数据源 */
   private trajectorySource: VectorSource<Feature> | null = null;
+  /** 多车辆轨迹图层集合，key 为 resourceId */
   private multiTrajectoryLayers: Record<string, VectorLayer<any>> = {};
+  /** 多车辆轨迹数据源集合 */
   private multiTrajectorySources: Record<string, VectorSource<Feature>> = {};
+
+  // ==================== 热力图层 ====================
+  /** 热力图层，显示点位密度分布 */
   private heatmapLayer: VectorLayer<any> | null = null;
+  /** 热力图数据源 */
   private heatmapSource: VectorSource<Feature> | null = null;
+
+  // ==================== 追踪图层 ====================
+  /** 追踪图层，高亮显示被追踪的资源（带脉冲动画） */
   private trackingLayer: VectorLayer<any> | null = null;
+  /** 追踪数据源 */
   private trackingSource: VectorSource<Feature> | null = null;
+  /** 追踪动画定时器 ID */
   private trackingAnimationId: number | null = null;
-  private popupOverlay: Overlay | null = null;
-  private playbackAnimationId: number | null = null;
-  private multiPlaybackAnimationId: number | null = null;
-  private useCluster: boolean = false;
-  private useWebGL: boolean = false;
+
+  // ==================== 临时标记图层 ====================
+  /** 临时标记数据源，用于位置选择器等场景 */
   private tempMarkerSource: VectorSource<Feature> | null = null;
+  /** 临时标记图层 */
   private tempMarkerLayer: VectorLayer<any> | null = null;
+
+  // ==================== 弹窗覆盖层 ====================
+  /** 弹窗覆盖层，在地图上显示信息弹窗 */
+  private popupOverlay: Overlay | null = null;
+
+  // ==================== 动画定时器 ====================
+  /** 单条轨迹回放动画定时器 ID */
+  private playbackAnimationId: number | null = null;
+  /** 多车辆轨迹回放动画定时器 ID */
+  private multiPlaybackAnimationId: number | null = null;
+
+  // ==================== 渲染模式标志 ====================
+  /** 是否启用聚合模式 */
+  private useCluster: boolean = false;
+  /** 是否启用 WebGL 渲染模式 */
+  private useWebGL: boolean = false;
 
   /**
    * 初始化地图
@@ -485,6 +536,7 @@ export class MapService {
     if (baseSource) {
       baseSource.refresh();
     }
+    console.log("end");
 
     return this.map;
   }
@@ -494,6 +546,95 @@ export class MapService {
    */
   public getMap(): Map | null {
     return this.map;
+  }
+
+  /**
+   * 检查地图是否已初始化完成
+   *
+   * 【判断依据】
+   * 1. map 实例存在
+   * 2. map 已绑定 DOM 容器
+   * 3. 地图尺寸大于 0
+   *
+   * @returns 地图是否就绪
+   */
+  public isMapReady(): boolean {
+    if (!this.map) return false;
+    const target = this.map.getTargetElement();
+    if (!target) return false;
+    const rect = target.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0;
+  }
+
+  /**
+   * 等待地图加载完成后执行回调
+   *
+   * 【功能说明】
+   * - 地图初始化是异步的，需要等待 DOM 容器就绪
+   * - 此方法会轮询检查地图状态，就绪后执行回调
+   *
+   * @param callback - 地图就绪后执行的回调函数
+   * @param timeout - 超时时间（毫秒），默认 5000ms
+   * @param interval - 检查间隔（毫秒），默认 100ms
+   */
+  public onMapReady(
+    callback: () => void,
+    timeout: number = 5000,
+    interval: number = 100,
+  ): void {
+    // 如果地图已经就绪，立即执行
+    if (this.isMapReady()) {
+      callback();
+      return;
+    }
+
+    const startTime = Date.now();
+
+    const checkReady = () => {
+      if (this.isMapReady()) {
+        callback();
+        return;
+      }
+
+      if (Date.now() - startTime > timeout) {
+        console.warn("[MapService] 等待地图加载超时");
+        return;
+      }
+
+      setTimeout(checkReady, interval);
+    };
+
+    checkReady();
+  }
+
+  /**
+   * 获取地图加载状态
+   *
+   * @returns 地图各维度的状态信息
+   */
+  public getMapStatus(): {
+    isInitialized: boolean;
+    hasTarget: boolean;
+    hasSize: boolean;
+    hasBaseLayer: boolean;
+  } {
+    const result = {
+      isInitialized: !!this.map,
+      hasTarget: false,
+      hasSize: false,
+      hasBaseLayer: !!this.baseLayer,
+    };
+
+    if (this.map) {
+      const target = this.map.getTargetElement();
+      result.hasTarget = !!target;
+      if (target) {
+        const rect = target.getBoundingClientRect();
+        result.hasSize = rect.width > 0 && rect.height > 0;
+      }
+    }
+
+    return result;
   }
 
   /**
@@ -854,6 +995,8 @@ export class MapService {
    * 更新资源点位
    */
   public updateResources(resources: Resource[]): void {
+    console.log("resources", resources);
+
     if (this.useWebGL) {
       if (!this.webglResourceSource) return;
       this.webglResourceSource.clear();

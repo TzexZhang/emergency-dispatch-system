@@ -130,11 +130,12 @@ const Dashboard: React.FC = () => {
 
   const fetchIncidents = useCallback(async () => {
     try {
+      // 查询全量事件数据用于地图显示
       const res = await http.get<{
         list: any[];
         total: number;
       }>("/api/v1/incidents", {
-        params: { page: 1, pageSize: 20 },
+        params: { page: 1, pageSize: 50000 }, // 全量数据
       });
       if (res?.data?.list) {
         setIncidents(res.data.list);
@@ -148,13 +149,14 @@ const Dashboard: React.FC = () => {
   const fetchResources = useCallback(async () => {
     setLoading(true);
     try {
+      // 查询全量资源数据用于地图显示
       const res = await http.get<{
         list: Resource[];
         total: number;
         page: number;
         pageSize: number;
       }>("/api/v1/resources", {
-        params: { page: 1, pageSize: 500 },
+        params: { page: 1, pageSize: 50000 }, // 全量数据
       });
       if (res?.data?.list) {
         setResources(res.data.list as Resource[]);
@@ -215,6 +217,35 @@ const Dashboard: React.FC = () => {
       return true;
     });
   }, [resources, resourceFilter]);
+
+  // 将事件数据转换为地图资源格式 - 确保数据结构与资源一致
+  const incidentMapResources = useMemo(() => {
+    return incidents
+      .filter((i) => i.latitude && i.longitude)
+      .map((incident) => ({
+        id: incident.id,
+        resourceTypeId: incident.type,
+        // typeCode 用于地图服务识别是事件还是资源，以及具体类型
+        typeCode: `incident_${incident.type}`,
+        resourceStatus: incident.status as any,
+        resourceName: incident.title,
+        longitude: Number(incident.longitude),
+        latitude: Number(incident.latitude),
+        typeName: incident.type,
+        // 事件特有属性
+        properties: {
+          level: incident.level,
+          type: incident.type,
+          status: incident.status,
+          description: incident.description,
+        },
+      }));
+  }, [incidents]);
+
+  // 合并资源和事件数据用于地图显示
+  const mapDisplayData = useMemo(() => {
+    return [...resources, ...incidentMapResources];
+  }, [resources, incidentMapResources]);
 
   useEffect(() => {
     fetchStats();
@@ -476,14 +507,12 @@ const Dashboard: React.FC = () => {
                     </Button>
                   </div>
                   {/* 地图组件 - 直接渲染，与事件地图页面保持一致 */}
-                  {resources.length > 0 && (
-                    <MapContainer
-                      key={`dashboard-map-${activeTab}`}
-                      resources={resources}
-                      useCluster={useClusterMode}
-                      onResourceClick={handleResourceClick}
-                    />
-                  )}
+                  <MapContainer
+                    key={`dashboard-map-${mapDisplayData.length}`}
+                    resources={mapDisplayData}
+                    useCluster={useClusterMode}
+                    onResourceClick={handleResourceClick}
+                  />
                   {/* 加载状态覆盖层 */}
                   {loading && (
                     <div

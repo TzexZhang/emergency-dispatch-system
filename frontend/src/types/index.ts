@@ -83,7 +83,7 @@ export interface Incident {
   resolvedAt?: string;
 }
 
-export type IncidentType = 'fire' | 'traffic' | 'medical' | 'public_security' | 'natural_disaster';
+export type IncidentType = 'fire' | 'traffic' | 'medical' | 'public_security' | 'natural_disaster' | 'police';
 export type IncidentLevel = 'minor' | 'major' | 'severe';
 export type IncidentStatus = 'pending' | 'processing' | 'resolved' | 'closed';
 
