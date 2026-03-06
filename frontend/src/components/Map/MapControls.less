@@ -1,0 +1,150 @@
+/**
+ * 地图控件样式
+ */
+
+.map-controls {
+  position: absolute;
+  right: 12px;
+  bottom: 80px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+/* 地点搜索 */
+.map-search {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  padding: 8px;
+  backdrop-filter: blur(4px);
+
+  :global {
+    .ant-select-selector {
+      border-radius: 4px !important;
+    }
+
+    .ant-input-affix-wrapper {
+      border-radius: 4px;
+    }
+  }
+}
+
+/* 当前位置显示 */
+.current-location {
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  font-size: 12px;
+  color: #333;
+  backdrop-filter: blur(4px);
+}
+
+.search-option {
+  display: flex;
+  align-items: center;
+  padding: 4px 0;
+
+  .search-option-name {
+    font-weight: 500;
+  }
+}
+
+/* 缩放控制 */
+.zoom-control {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(4px);
+  overflow: hidden;
+}
+
+.zoom-btn {
+  width: 32px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #333;
+  font-size: 14px;
+  transition: all 0.2s;
+
+  &:hover {
+    background: #f0f0f0;
+    color: #1890ff;
+  }
+
+  &:active {
+    background: #e0e0e0;
+  }
+}
+
+.zoom-level {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  padding: 4px 0;
+  border-top: 1px solid #e8e8e8;
+  border-bottom: 1px solid #e8e8e8;
+  min-width: 32px;
+  background: #fafafa;
+
+  .zoom-value {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1890ff;
+  }
+
+  .zoom-label {
+    font-size: 10px;
+    color: #999;
+    margin-left: 2px;
+  }
+}
+
+/* 暗色主题适配 */
+@media (prefers-color-scheme: dark) {
+  .map-search,
+  .zoom-control,
+  .current-location {
+    background: rgba(30, 30, 30, 0.95);
+  }
+
+  .current-location {
+    color: #ddd;
+  }
+
+  .zoom-btn {
+    color: #ddd;
+
+    &:hover {
+      background: #404040;
+      color: #4096ff;
+    }
+  }
+
+  .zoom-level {
+    background: #2a2a2a;
+    border-color: #404040;
+
+    .zoom-value {
+      color: #4096ff;
+    }
+
+    .zoom-label {
+      color: #888;
+    }
+  }
+}

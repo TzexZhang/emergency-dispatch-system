@@ -570,7 +570,30 @@ export class MapService {
     if (baseSource) {
       baseSource.refresh();
     }
-    console.log("end");
+
+    // 【缩放等级动态调整聚合距离】
+    // 缩放级别越低（地图越远），聚合距离越大，更多点被聚合
+    // 缩放级别越高（地图越近），聚合距离越小，点被拆分
+    if (useCluster && this.clusterSource && this.map) {
+      const updateClusterDistance = () => {
+        const zoom = this.map?.getView()?.getZoom() ?? 12;
+        // zoom 3 -> distance 120, zoom 18 -> distance 30
+        const minZoom = 3;
+        const maxZoom = 18;
+        const minDistance = 30;
+        const maxDistance = 120;
+        const normalizedZoom = Math.max(minZoom, Math.min(maxZoom, zoom));
+        const ratio = (normalizedZoom - minZoom) / (maxZoom - minZoom);
+        const distance = Math.round(maxDistance - ratio * (maxDistance - minDistance));
+        this.clusterSource?.setDistance(distance);
+      };
+
+      // 初始设置
+      updateClusterDistance();
+
+      // 监听缩放结束事件
+      this.map.on("moveend", updateClusterDistance);
+    }
 
     return this.map;
   }
@@ -580,6 +603,35 @@ export class MapService {
    */
   public getMap(): OLMap | null {
     return this.map;
+  }
+
+  /**
+   * 监听缩放级别变化
+   * @param callback - 缩放变化时的回调函数
+   * @returns 取消监听的函数
+   */
+  public onZoomChange(callback: (zoom: number) => void): () => void {
+    if (!this.map) {
+      return () => {};
+    }
+
+    const view = this.map.getView();
+    if (!view) {
+      return () => {};
+    }
+
+    const listener = () => {
+      const zoom = view.getZoom();
+      if (zoom !== undefined) {
+        callback(zoom);
+      }
+    };
+
+    view.on("change:resolution", listener);
+
+    return () => {
+      view.un("change:resolution", listener);
+    };
   }
 
   /**
@@ -707,13 +759,41 @@ export class MapService {
    * @param lat - 纬度
    * @param zoom - 缩放级别
    */
-  public flyTo(lng: number, lat: number, zoom: number): void {
+  /**
+   * 飞到指定位置和缩放级别
+   * 支持两种调用方式：
+   * - flyTo([lng, lat], zoom, duration)
+   * - flyTo(lng, lat, zoom)
+   */
+  public flyTo(
+    coordOrLng: [number, number] | number,
+    zoomOrLat?: number,
+    durationOrZoom?: number,
+  ): void {
     if (!this.map) return;
     const view = this.map.getView();
+
+    let center: [number, number];
+    let zoom: number;
+    let duration: number;
+
+    // 判断参数类型
+    if (Array.isArray(coordOrLng)) {
+      // flyTo([lng, lat], zoom, duration)
+      center = coordOrLng;
+      zoom = zoomOrLat ?? 12;
+      duration = durationOrZoom ?? 1500;
+    } else {
+      // flyTo(lng, lat, zoom)
+      center = [coordOrLng, zoomOrLat!];
+      zoom = durationOrZoom ?? 12;
+      duration = 1500;
+    }
+
     view?.animate({
-      center: fromLonLat([lng, lat]),
+      center: fromLonLat(center),
       zoom,
-      duration: 1500,
+      duration,
     });
   }
 

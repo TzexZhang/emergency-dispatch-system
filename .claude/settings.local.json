@@ -40,7 +40,9 @@
       "Bash(pnpm run:*)",
       "Bash(npx ts-node:*)",
       "Bash(grep:*)",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "mcp__zread__read_file",
+      "mcp__web-reader__webReader"
     ]
   }
 }

@@ -16,12 +16,14 @@ import { useEffect, useRef } from "react";
 import { mapService } from "@services/map.service";
 import { config } from "@/config";
 import type { Resource } from "@/types";
+import MapControls from "./MapControls";
 import "ol/ol.css";
 
 interface MapContainerProps {
   resources?: Resource[];
   useCluster?: boolean;
   useWebGL?: boolean;
+  showControls?: boolean; // 是否显示地图控件（缩放、搜索）
   onResourceClick?: (resource: Resource) => void;
 }
 
@@ -29,6 +31,7 @@ const MapContainer: React.FC<MapContainerProps> = ({
   resources = [],
   useCluster = true,
   useWebGL = false,
+  showControls = true,
   onResourceClick,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -181,19 +184,30 @@ const MapContainer: React.FC<MapContainerProps> = ({
 
   return (
     <div
-      ref={mapContainerRef}
-      className="map-container"
+      className="map-container-wrapper"
       style={{
         width: "100%",
         height: "100%",
-        position: "absolute",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        zIndex: 1,
+        position: "relative",
       }}
-    />
+    >
+      <div
+        ref={mapContainerRef}
+        className="map-container"
+        style={{
+          width: "100%",
+          height: "100%",
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 1,
+        }}
+      />
+      {/* 地图控件：缩放等级 + 地点搜索 */}
+      {showControls && <MapControls />}
+    </div>
   );
 };
 
