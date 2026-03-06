@@ -51,7 +51,6 @@ export interface MapConfig {
   zoom: number;
   minZoom?: number;
   maxZoom?: number;
-  useCluster?: boolean;
   useWebGL?: boolean;
 }
 
@@ -326,8 +325,6 @@ export class MapService {
   private multiPlaybackAnimationId: number | null = null;
 
   // ==================== 渲染模式标志 ====================
-  /** 是否启用聚合模式 */
-  private useCluster: boolean = false;
   /** 是否启用 WebGL 渲染模式 */
   private useWebGL: boolean = false;
 
@@ -343,13 +340,13 @@ export class MapService {
    * 初始化地图
    *
    * @param mapConfig - 地图配置
-   * @param useCluster - 是否启用聚合（默认false）
+   * @param _useCluster - 废弃参数，保留兼容性（始终使用聚合模式）
    * @param useWebGL - 是否使用WebGL渲染（默认false）
    * @returns OpenLayers Map实例
    */
   public initMap(
     mapConfig: MapConfig,
-    useCluster: boolean = false,
+    _useCluster?: boolean,
     useWebGL: boolean = false,
   ): OLMap {
     // 如果已存在地图实例，先销毁
@@ -511,16 +508,14 @@ export class MapService {
       zIndex: 100, // 最高层级
     });
 
-    this.useCluster = useCluster;
     this.useWebGL = useWebGL;
 
     const layers: any[] = [this.baseLayer];
     if (useWebGL) {
       layers.push(this.webglResourceLayer);
-    } else if (useCluster) {
-      layers.push(this.clusterLayer);
     } else {
-      layers.push(this.resourceLayer);
+      // 始终使用聚合图层
+      layers.push(this.clusterLayer);
     }
     if (this.analysisLayer) {
       layers.push(this.analysisLayer);
@@ -574,7 +569,7 @@ export class MapService {
     // 【缩放等级动态调整聚合距离】
     // 缩放级别越低（地图越远），聚合距离越大，更多点被聚合
     // 缩放级别越高（地图越近），聚合距离越小，点被拆分
-    if (useCluster && this.clusterSource && this.map) {
+    if (this.clusterSource && this.map) {
       const updateClusterDistance = () => {
         const zoom = this.map?.getView()?.getZoom() ?? 12;
         // zoom 3 -> distance 120, zoom 18 -> distance 30
@@ -910,7 +905,6 @@ export class MapService {
     this.popupOverlay = null;
     this.multiTrajectoryLayers = {};
     this.multiTrajectorySources = {};
-    this.useCluster = false;
     this.useWebGL = false;
     // 清理样式缓存
     this.resourceStyleCache.clear();
@@ -1880,51 +1874,6 @@ export class MapService {
   }
 
   /**
-   * 启用聚合模式
-   */
-  public enableCluster(): void {
-    if (!this.map || !this.resourceLayer || !this.clusterLayer) return;
-    if (this.useCluster) return; // 已经是聚合模式
-
-    const layers = this.map.getLayers();
-    if (layers.getArray().includes(this.resourceLayer)) {
-      this.map.removeLayer(this.resourceLayer);
-    }
-    if (!layers.getArray().includes(this.clusterLayer)) {
-      this.map.addLayer(this.clusterLayer);
-    }
-    this.useCluster = true;
-  }
-
-  /**
-   * 禁用聚合模式
-   */
-  public disableCluster(): void {
-    if (!this.map || !this.resourceLayer || !this.clusterLayer) return;
-    if (!this.useCluster) return; // 已经是非聚合模式
-
-    const layers = this.map.getLayers();
-    if (layers.getArray().includes(this.clusterLayer)) {
-      this.map.removeLayer(this.clusterLayer);
-    }
-    if (!layers.getArray().includes(this.resourceLayer)) {
-      this.map.addLayer(this.resourceLayer);
-    }
-    this.useCluster = false;
-  }
-
-  /**
-   * 切换聚合模式
-   */
-  public toggleCluster(): void {
-    if (this.useCluster) {
-      this.disableCluster();
-    } else {
-      this.enableCluster();
-    }
-  }
-
-  /**
    * 设置聚合距离
    */
   public setClusterDistance(distance: number): void {
@@ -1994,28 +1943,27 @@ export class MapService {
       });
 
       if (isResourceLayer && clickedFeature) {
-        if (this.useCluster) {
-          const features: Feature[] | undefined =
-            clickedFeature.get("features");
-          if (features && features.length > 1) {
-            // 点击聚合点，放大地图
-            const geometry = clickedFeature.getGeometry();
-            if (geometry) {
-              const extent = geometry.getExtent();
-              const view = this.map.getView();
-              view?.fit(extent, { padding: [50, 50, 50, 50], duration: 500 });
-            }
-            return;
+        // 始终使用聚合逻辑处理点击
+        const features: Feature[] | undefined =
+          clickedFeature.get("features");
+        if (features && features.length > 1) {
+          // 点击聚合点，放大地图
+          const geometry = clickedFeature.getGeometry();
+          if (geometry) {
+            const extent = geometry.getExtent();
+            const view = this.map.getView();
+            view?.fit(extent, { padding: [50, 50, 50, 50], duration: 500 });
           }
-          // 聚合数量为1时，获取原始feature的数据
-          if (features && features.length === 1) {
-            const originalFeature = features[0];
-            const data = originalFeature.get("data") as Resource;
-            if (data) {
-              // 创建一个包含正确id的feature返回给回调
-              callback(originalFeature);
-              return;
-            }
+          return;
+        }
+        // 聚合数量为1时，获取原始feature的数据
+        if (features && features.length === 1) {
+          const originalFeature = features[0];
+          const data = originalFeature.get("data") as Resource;
+          if (data) {
+            // 创建一个包含正确id的feature返回给回调
+            callback(originalFeature);
+            return;
           }
         }
         callback(clickedFeature);
@@ -2148,11 +2096,6 @@ export class MapService {
       }
       updateStyles();
     }, 40);
-
-    // 先禁用聚合模式，确保资源点单独显示
-    if (this.useCluster) {
-      this.disableCluster();
-    }
 
     // 将视图移动到资源位置，使用较高的缩放级别
     const view = this.map.getView();
