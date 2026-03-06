@@ -495,11 +495,10 @@ const Dashboard: React.FC = () => {
                       资源列表
                     </Button>
                   </div>
-                  {/* 地图组件 - 使用聚合模式 */}
+                  {/* 地图组件 */}
                   <MapContainer
                     key="dashboard-map"
                     resources={mapDisplayData}
-                    useCluster={true}
                     onResourceClick={handleResourceClick}
                   />
                   {/* 加载状态覆盖层 */}

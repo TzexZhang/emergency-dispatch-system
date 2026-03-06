@@ -21,7 +21,6 @@ import "ol/ol.css";
 
 interface MapContainerProps {
   resources?: Resource[];
-  useCluster?: boolean;
   useWebGL?: boolean;
   showControls?: boolean; // 是否显示地图控件（缩放、搜索）
   onResourceClick?: (resource: Resource) => void;
@@ -29,13 +28,11 @@ interface MapContainerProps {
 
 const MapContainer: React.FC<MapContainerProps> = ({
   resources = [],
-  useCluster = true,
   useWebGL = false,
   showControls = true,
   onResourceClick,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const prevUseClusterRef = useRef(useCluster);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const initAttemptedRef = useRef(false);
   const prevResourcesRef = useRef<Resource[]>([]);
@@ -75,6 +72,7 @@ const MapContainer: React.FC<MapContainerProps> = ({
     };
 
     const doInit = () => {
+      // 始终使用聚合模式
       mapService.initMap(
         {
           target: mapContainerRef.current!,
@@ -83,10 +81,9 @@ const MapContainer: React.FC<MapContainerProps> = ({
           minZoom: config.map.minZoom,
           maxZoom: config.map.maxZoom,
         },
-        useCluster,
+        true, // 始终启用聚合
         useWebGL,
       );
-      prevUseClusterRef.current = useCluster;
       isMapReadyRef.current = true;
 
       // 延迟触发尺寸更新，确保瓦片加载
@@ -139,18 +136,6 @@ const MapContainer: React.FC<MapContainerProps> = ({
       }
     });
   }, [resources, onResourceClick]);
-
-  // 处理聚合模式切换
-  useEffect(() => {
-    if (useCluster !== prevUseClusterRef.current) {
-      if (useCluster) {
-        mapService.enableCluster();
-      } else {
-        mapService.disableCluster();
-      }
-      prevUseClusterRef.current = useCluster;
-    }
-  }, [useCluster]);
 
   // 更新资源点位 - 使用引用比较避免重复更新
   useEffect(() => {

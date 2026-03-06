@@ -588,7 +588,6 @@ const ResourceMonitor: React.FC = () => {
               <MapContainer
                 key="resource-monitor"
                 resources={trackingResource ? [trackingResource] : resources}
-                useCluster={!trackingResource}
                 onResourceClick={(resource) => {
                   setSelectedResource(resource);
                   setDrawerVisible(true);

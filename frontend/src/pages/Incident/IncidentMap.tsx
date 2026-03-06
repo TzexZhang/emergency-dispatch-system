@@ -333,7 +333,6 @@ const IncidentMap: React.FC = () => {
           <MapContainer
             key={`incident-map-${mapResources.length}`}
             resources={mapResources}
-            useCluster={true}
             useWebGL={false}
             onResourceClick={(resource) => {
               const incident = filteredIncidents.find(
